@@ -1,0 +1,20 @@
+{
+  "name": "PayGate402 Buyer",
+  "description": "An autonomous agent that discovers and pays for x402-protected APIs in sub-cent USDC on Circle Arc, settling via Circle Gateway batching.",
+  "version": "0.1.0",
+  "capabilities": ["x402-payments", "usdc-settlement", "arc-testnet", "gateway-batching"],
+  "skills": [
+    {
+      "id": "pay-x402",
+      "name": "Pay for an x402 resource",
+      "description": "Signs EIP-3009 authorizations and settles sub-cent USDC payments via Circle Gateway."
+    }
+  ],
+  "registrations": [
+    {
+      "standard": "ERC-8004",
+      "chainId": 5042002,
+      "registry": "0x8004A818BFB912233c491871b3d84c89A494BD9e"
+    }
+  ]
+}

@@ -116,6 +116,9 @@ export function withPaywall(handler: Handler, price: string, endpoint: string) {
         amountUsdc,
         network: requirements.network,
         gatewayTx: settleResult.transaction ?? null,
+        // Optional ERC-8004 identity the buyer agent presents about itself.
+        agentId: req.headers.get("x-agent-id"),
+        agentAddress: req.headers.get("x-agent-address"),
       }).catch((e) => console.error("[paywall] failed to record payment:", e));
 
       console.log(`[paywall] settled ${endpoint} — ${amountUsdc} USDC from ${payer}`);

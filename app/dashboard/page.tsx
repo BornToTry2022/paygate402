@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 const EXPLORER = "https://testnet.arcscan.app";
+const IDENTITY_REGISTRY = "0x8004A818BFB912233c491871b3d84c89A494BD9e";
+const agentUrl = (id: string) => `${EXPLORER}/token/${IDENTITY_REGISTRY}/instance/${id}`;
 
 interface PaymentEvent {
   id: string;
@@ -11,6 +13,8 @@ interface PaymentEvent {
   amountUsdc: string;
   network: string;
   gatewayTx: string | null;
+  agentId: string | null;
+  agentAddress: string | null;
   ts: string;
 }
 interface Stats {
@@ -58,6 +62,8 @@ export default function Dashboard() {
     };
   }, []);
 
+  const identity = payments.find((p) => p.agentId) ?? null;
+
   return (
     <main className="wrap">
       <div className="eyebrow">
@@ -69,6 +75,24 @@ export default function Dashboard() {
         Incoming x402 payments, settled in USDC on Arc via Circle Gateway batching. Auto-refreshes
         every 2.5s. <a href="/">← endpoints</a>
       </p>
+
+      {identity?.agentId && (
+        <div
+          className="card"
+          style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", borderColor: "#27623a" }}
+        >
+          <span className="badge price" style={{ borderColor: "#27623a" }}>
+            ERC-8004
+          </span>
+          <span>
+            Paid by on-chain agent{" "}
+            <a href={agentUrl(identity.agentId)} target="_blank" rel="noreferrer">
+              #{identity.agentId}
+            </a>{" "}
+            <span className="muted">— a verifiable identity, not just an address ({short(identity.agentAddress ?? "")})</span>
+          </span>
+        </div>
+      )}
 
       <div className="grid" style={{ marginTop: 24 }}>
         <div className="card stat">
@@ -126,6 +150,7 @@ export default function Dashboard() {
             <tr>
               <th>Time</th>
               <th>Endpoint</th>
+              <th>Agent</th>
               <th>Payer</th>
               <th>Amount</th>
               <th>Settlement</th>
@@ -134,7 +159,7 @@ export default function Dashboard() {
           <tbody>
             {payments.length === 0 ? (
               <tr>
-                <td colSpan={5} className="muted">
+                <td colSpan={6} className="muted">
                   Waiting for the first nanopayment…
                 </td>
               </tr>
@@ -143,6 +168,15 @@ export default function Dashboard() {
                 <tr key={p.id}>
                   <td className="muted mono">{new Date(p.ts).toLocaleTimeString()}</td>
                   <td className="mono">{p.endpoint.replace("/api/premium", "")}</td>
+                  <td className="mono">
+                    {p.agentId ? (
+                      <a href={agentUrl(p.agentId)} target="_blank" rel="noreferrer" className="price">
+                        #{p.agentId}
+                      </a>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
                   <td className="mono">{short(p.payer)}</td>
                   <td className="mono price">{usd(parseFloat(p.amountUsdc))}</td>
                   <td className="mono">

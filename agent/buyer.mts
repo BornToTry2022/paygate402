@@ -45,6 +45,13 @@ const endpoints = [
   { url: `${BASE_URL}/api/premium/fx-rate`, method: "GET" as const },
 ];
 
+// --- ERC-8004 on-chain identity (optional) ---
+const agentId = process.env.AGENT_ID;
+const agentAddress = process.env.AGENT_ADDRESS;
+const agentHeaders: Record<string, string> | undefined = agentId
+  ? { "X-Agent-Id": agentId, "X-Agent-Address": agentAddress ?? "" }
+  : undefined;
+
 // --- CLI args ---
 let spendingLimit: number | null = null;
 {
@@ -218,7 +225,7 @@ function startPaymentLoop() {
     inFlight++;
     const start = Date.now();
     gateway
-      .pay(ep.url, { method: ep.method, body: (ep as { body?: unknown }).body })
+      .pay(ep.url, { method: ep.method, body: (ep as { body?: unknown }).body, headers: agentHeaders })
       .then((result) => {
         inFlight--;
         const ms = Date.now() - start;
@@ -240,6 +247,11 @@ function startPaymentLoop() {
 }
 
 // --- main ---
+if (agentId) {
+  console.log(`Acting as ERC-8004 on-chain agent #${agentId} (${agentAddress})`);
+} else {
+  console.log("No on-chain identity set — run `npm run register-agent` to give this agent an ERC-8004 identity.");
+}
 await fundEphemeral();
 await depositToGateway();
 console.log(`\nPaying ${endpoints.length} endpoints at ~1 tx/sec. Ctrl-C to stop.\n`);

@@ -8,7 +8,10 @@ resource. Payments settle in **USDC on Arc Testnet** via **Circle Gateway batchi
 amortizes gas across thousands of payments and makes prices as low as **$0.000001** economically
 real. No accounts, no API keys: **payment is identity**.
 
-![PayGate402 seller dashboard](docs/dashboard.png)
+![PayGate402 seller dashboard — payments tagged with the buyer's on-chain ERC-8004 identity](docs/dashboard-identity.png)
+
+> Each payment is tagged with the buyer's **on-chain agent identity** (ERC-8004 #668408) — a
+> verifiable identity, not just a wallet — while the actual spend comes from disposable per-run wallets.
 
 > Why Arc specifically? Gateway batches many offchain EIP-3009 authorizations into a single onchain
 > settlement (the `GatewayWalletBatched` x402 scheme), and USDC is Arc's native gas token. On a
@@ -16,10 +19,11 @@ real. No accounts, no API keys: **payment is identity**.
 
 ## Demo
 
-A real local run: an autonomous buyer agent made **429 nanopayments** across three endpoints at
-~1 tx/sec, totaling **$0.50 USDC**, every one settled via Gateway batching — then auto-stopped at
-its `--limit`. The seller dashboard above shows the live revenue; the landing page lists the
-endpoints:
+A real run: an autonomous buyer agent — presenting its **on-chain ERC-8004 identity (agent #668408)** —
+discovers and pays for three endpoints in sub-cent USDC, settled via Gateway batching, spending from
+disposable per-run wallets. The dashboard above shows the live revenue tagged with that identity. In an
+earlier high-volume run the same agent made **429 nanopayments** totaling **$0.50 USDC** before
+auto-stopping at its `--limit`. The landing page lists the endpoints:
 
 ![PayGate402 landing page](docs/landing.png)
 
@@ -42,11 +46,12 @@ The agent signs an EIP-3009 authorization for that requirement and retries with 
 
 ```text
 $ npm run agent -- --limit 0.5
-Ephemeral agent wallet: 0x33b79b…2eef
+Ephemeral agent wallet: 0x8e3c22…
+Acting as ERC-8004 on-chain agent #668408 (0x8eaa…B607)
 Depositing 1 USDC into Gateway Wallet... done (available: 1)
-#1 POST summarize -> 0.002 USDC (612ms)  [spent: 0.002000/0.500000]
-#2 POST keywords  -> 0.001 USDC (340ms)  [spent: 0.003000/0.500000]
-#3 GET  fx-rate   -> 0.0005 USDC (291ms) [spent: 0.003500/0.500000]
+#1 POST summarize -> 0.002 USDC (388ms)  [spent: 0.002000/0.500000]
+#2 POST keywords  -> 0.001 USDC (438ms)  [spent: 0.003000/0.500000]
+#3 GET  fx-rate   -> 0.0005 USDC (361ms) [spent: 0.003500/0.500000]
 ...
 Spent 0.501500 / 0.500000 USDC (limit reached)
 ```
@@ -75,6 +80,26 @@ const handler = async (req: NextRequest) => NextResponse.json({ ... });
 export const POST = withPaywall(handler, "$0.002", "/api/premium/summarize");
 ```
 
+## On-chain agent identity (ERC-8004)
+
+A wallet address is anonymous and disposable. PayGate402's buyer agent can instead carry a **verifiable
+on-chain identity** via [ERC-8004](https://docs.arc.io/build/agentic-economy.md) — Arc's native registry
+for agent identity and reputation.
+
+```bash
+npm run register-agent      # mints an ERC-8004 identity NFT for the buyer wallet, writes AGENT_ID
+```
+
+This calls `register(agentURI)` on Arc's IdentityRegistry
+(`0x8004A818BFB912233c491871b3d84c89A494BD9e`), pointing at the agent card served at
+`/.well-known/agent-card.json`, and mints an identity NFT. The agent then presents that identity on
+every purchase (`X-Agent-Id` / `X-Agent-Address` headers), the paywall records it, and the dashboard
+links each payment to the [agent's on-chain identity](https://testnet.arcscan.app/token/0x8004A818BFB912233c491871b3d84c89A494BD9e/instance/668408).
+
+The result: **an agent with a stable, verifiable identity autonomously buys APIs** — while paying from
+throwaway per-run spend wallets. Identity and spend are decoupled. (A natural next step is to pair this
+with the ERC-8004 ReputationRegistry so sellers can price or gate by an agent's track record.)
+
 ## What's in here
 
 | Path | What it is |
@@ -82,11 +107,14 @@ export const POST = withPaywall(handler, "$0.002", "/api/premium/summarize");
 | `lib/paywall.ts` | **The reusable core.** `withPaywall(handler, price, endpoint)` — x402 402 + Gateway verify/settle. |
 | `lib/store.ts` | Zero-dependency JSON payment store (swap for a DB later). |
 | `lib/arc.ts` / `lib/text.ts` | Arc constants; zero-dep summarizer/keyword helpers. |
+| `lib/erc8004.ts` | ERC-8004 IdentityRegistry addresses + ABI (on-chain agent identity). |
+| `public/.well-known/agent-card.json` | The buyer agent's metadata card (its `agentURI`). |
 | `app/api/premium/*` | Three paid routes: `summarize` ($0.002), `keywords` ($0.001), `fx-rate` ($0.0005). |
 | `app/api/payments`, `app/api/gateway/balance` | Dashboard data (revenue store + seller Gateway balance). |
 | `app/page.tsx`, `app/dashboard/page.tsx` | Landing + live revenue dashboard. |
 | `agent/buyer.mts` | Autonomous buyer agent (`GatewayClient`) with a `--limit` spend cap. |
 | `scripts/generate-wallets.mts` | Creates seller + buyer wallets into `.env.local`. |
+| `scripts/register-agent.mts` | Mints the buyer's ERC-8004 on-chain identity, writes `AGENT_ID`. |
 
 ## Quick start
 
@@ -94,6 +122,7 @@ export const POST = withPaywall(handler, "$0.002", "/api/premium/summarize");
 npm install
 npm run generate-wallets         # writes SELLER_* and BUYER_* into .env.local
 # Fund BUYER_ADDRESS with Arc Testnet USDC at https://faucet.circle.com
+npm run register-agent           # (optional) mint the buyer's ERC-8004 on-chain identity
 npm run dev                      # seller app on http://localhost:3000
 npm run agent -- --limit 0.5     # buyer agent pays your endpoints until 0.5 USDC spent
 ```

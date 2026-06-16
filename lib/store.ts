@@ -18,6 +18,9 @@ export interface PaymentEvent {
   amountUsdc: string;
   network: string;
   gatewayTx: string | null;
+  /** ERC-8004 on-chain agent identity that made this payment, if presented. */
+  agentId: string | null;
+  agentAddress: string | null;
   ts: string;
 }
 
