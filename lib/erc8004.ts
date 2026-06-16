@@ -58,6 +58,49 @@ export const identityRegistryAbi = [
   },
 ] as const;
 
+/** Minimal ReputationRegistry ABI (subset), from the verified implementation. */
+export const reputationRegistryAbi = [
+  {
+    type: "function",
+    name: "getClients",
+    stateMutability: "view",
+    inputs: [{ name: "agentId", type: "uint256" }],
+    outputs: [{ type: "address[]" }],
+  },
+  {
+    type: "function",
+    name: "getSummary",
+    stateMutability: "view",
+    inputs: [
+      { name: "agentId", type: "uint256" },
+      { name: "clientAddresses", type: "address[]" },
+      { name: "tag1", type: "string" },
+      { name: "tag2", type: "string" },
+    ],
+    outputs: [
+      { name: "count", type: "uint64" },
+      { name: "summaryValue", type: "int128" },
+      { name: "summaryValueDecimals", type: "uint8" },
+    ],
+  },
+  {
+    type: "function",
+    name: "giveFeedback",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "agentId", type: "uint256" },
+      { name: "value", type: "int128" },
+      { name: "valueDecimals", type: "uint8" },
+      { name: "tag1", type: "string" },
+      { name: "tag2", type: "string" },
+      { name: "endpoint", type: "string" },
+      { name: "feedbackURI", type: "string" },
+      { name: "feedbackHash", type: "bytes32" },
+    ],
+    outputs: [],
+  },
+] as const;
+
 /** Explorer link to an agent identity NFT instance. */
 export function agentExplorerUrl(agentId: string | number | bigint): string {
   return `https://testnet.arcscan.app/token/${ERC8004.identityRegistry}/instance/${agentId}`;

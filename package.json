@@ -9,6 +9,7 @@
     "start": "next start",
     "generate-wallets": "node --experimental-transform-types --no-warnings scripts/generate-wallets.mts",
     "register-agent": "node --experimental-transform-types --no-warnings --env-file=.env.local scripts/register-agent.mts",
+    "give-feedback": "node --experimental-transform-types --no-warnings --env-file=.env.local scripts/give-feedback.mts",
     "agent": "node --experimental-transform-types --no-warnings --env-file=.env.local agent/buyer.mts"
   },
   "dependencies": {

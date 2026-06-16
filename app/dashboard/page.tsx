@@ -27,6 +27,11 @@ interface Balance {
   gateway?: { total: string; available: string; withdrawing: string; withdrawable: string };
   error?: string;
 }
+interface Reputation {
+  agentId: string;
+  count: number;
+  score: number;
+}
 
 const short = (a: string) => (a && a.startsWith("0x") && a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
 const usd = (n: number) => `$${n.toFixed(6)}`;
@@ -35,6 +40,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [payments, setPayments] = useState<PaymentEvent[]>([]);
   const [balance, setBalance] = useState<Balance | null>(null);
+  const [reputation, setReputation] = useState<Reputation | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -49,6 +55,7 @@ export default function Dashboard() {
         if (!alive) return;
         setStats(p.stats);
         setPayments(p.payments ?? []);
+        setReputation(p.reputation ?? null);
         setBalance(b);
       } catch {
         /* keep last good state */
@@ -88,7 +95,18 @@ export default function Dashboard() {
             Paid by on-chain agent{" "}
             <a href={agentUrl(identity.agentId)} target="_blank" rel="noreferrer">
               #{identity.agentId}
-            </a>{" "}
+            </a>
+            {reputation && reputation.count > 0 && (
+              <>
+                {" "}
+                <span className="badge price" style={{ borderColor: "#27623a" }}>
+                  reputation {reputation.score}/100
+                </span>{" "}
+                <span className="muted">
+                  ({reputation.count} review{reputation.count === 1 ? "" : "s"})
+                </span>
+              </>
+            )}{" "}
             <span className="muted">— a verifiable identity, not just an address ({short(identity.agentAddress ?? "")})</span>
           </span>
         </div>

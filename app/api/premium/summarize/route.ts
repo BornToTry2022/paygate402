@@ -27,4 +27,7 @@ const handler = async (req: NextRequest) => {
   });
 };
 
-export const POST = withPaywall(handler, "$0.002", "/api/premium/summarize");
+// Reputable agents (ERC-8004 score >= 60) get a 50% discount: $0.002 -> $0.001.
+export const POST = withPaywall(handler, "$0.002", "/api/premium/summarize", {
+  discount: { atScore: 60, price: "$0.001" },
+});

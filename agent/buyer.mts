@@ -43,6 +43,8 @@ const endpoints = [
     body: { text: "Circle Gateway batches offchain x402 authorizations into a single onchain settlement, making nanopayments economically viable on Arc." },
   },
   { url: `${BASE_URL}/api/premium/fx-rate`, method: "GET" as const },
+  // Reputation-gated high-frequency feed: 403 until the agent's ERC-8004 score >= 60.
+  { url: `${BASE_URL}/api/premium/firehose`, method: "GET" as const },
 ];
 
 // --- ERC-8004 on-chain identity (optional) ---

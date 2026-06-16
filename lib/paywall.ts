@@ -2,6 +2,7 @@ import { BatchFacilitatorClient } from "@circle-fin/x402-batching/server";
 import { NextRequest, NextResponse } from "next/server";
 import { ARC, getSellerAddress } from "@/lib/arc";
 import { recordPayment } from "@/lib/store";
+import { getReputation } from "@/lib/reputation";
 
 /**
  * withPaywall — wrap any Next.js route handler so it requires an x402 USDC
@@ -51,7 +52,19 @@ function buildPaymentRequirements(price: string, payTo: `0x${string}`) {
 
 type Handler = (req: NextRequest) => Promise<NextResponse> | NextResponse;
 
-export function withPaywall(handler: Handler, price: string, endpoint: string) {
+export interface PaywallOpts {
+  /** Deny access (HTTP 403) unless the calling agent's ERC-8004 reputation score >= minScore. */
+  minScore?: number;
+  /** Charge a discounted price to agents whose reputation score >= atScore. */
+  discount?: { atScore: number; price: string };
+}
+
+export function withPaywall(
+  handler: Handler,
+  price: string,
+  endpoint: string,
+  opts: PaywallOpts = {},
+) {
   return async (req: NextRequest): Promise<NextResponse> => {
     const sellerAddress = getSellerAddress();
     if (!sellerAddress) {
@@ -61,7 +74,33 @@ export function withPaywall(handler: Handler, price: string, endpoint: string) {
       );
     }
 
-    const requirements = buildPaymentRequirements(price, sellerAddress);
+    const agentId = req.headers.get("x-agent-id");
+    const agentAddress = req.headers.get("x-agent-address");
+
+    // --- ERC-8004 reputation gate / dynamic pricing (read on both the 402 and the paid retry;
+    // getReputation is cached so both compute the same effective price) ---
+    let effectivePrice = price;
+    if (opts.minScore != null || opts.discount) {
+      const rep = await getReputation(agentId);
+      if (opts.minScore != null && rep.score < opts.minScore) {
+        return NextResponse.json(
+          {
+            error: "reputation gate",
+            endpoint,
+            requiredScore: opts.minScore,
+            yourScore: rep.score,
+            agentId: agentId ?? null,
+            hint: agentId
+              ? "Build ERC-8004 reputation (seller feedback) to unlock this endpoint."
+              : "Register an ERC-8004 identity and earn reputation to access this endpoint.",
+          },
+          { status: 403 },
+        );
+      }
+      if (opts.discount && rep.score >= opts.discount.atScore) effectivePrice = opts.discount.price;
+    }
+
+    const requirements = buildPaymentRequirements(effectivePrice, sellerAddress);
     const paymentSignature = req.headers.get("payment-signature");
 
     // --- No payment: return 402 with Gateway batching requirements ---
@@ -70,12 +109,14 @@ export function withPaywall(handler: Handler, price: string, endpoint: string) {
         x402Version: 2,
         resource: {
           url: endpoint,
-          description: `Paid resource (${price} USDC)`,
+          description: `Paid resource (${effectivePrice} USDC)`,
           mimeType: "application/json",
         },
         accepts: [requirements],
       };
-      return new NextResponse(JSON.stringify({ error: "Payment required", price, endpoint }), {
+      return new NextResponse(
+        JSON.stringify({ error: "Payment required", price: effectivePrice, endpoint }),
+        {
         status: 402,
         headers: {
           "Content-Type": "application/json",
@@ -117,8 +158,8 @@ export function withPaywall(handler: Handler, price: string, endpoint: string) {
         network: requirements.network,
         gatewayTx: settleResult.transaction ?? null,
         // Optional ERC-8004 identity the buyer agent presents about itself.
-        agentId: req.headers.get("x-agent-id"),
-        agentAddress: req.headers.get("x-agent-address"),
+        agentId,
+        agentAddress,
       }).catch((e) => console.error("[paywall] failed to record payment:", e));
 
       console.log(`[paywall] settled ${endpoint} — ${amountUsdc} USDC from ${payer}`);
