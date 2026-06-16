@@ -149,6 +149,32 @@ forged signature         -> firehose 403, summarize $0.002   (signer != owner)
 valid owner signature    -> firehose 402, summarize $0.001   (unlocked + discount)
 ```
 
+## Agent-to-agent jobs (ERC-8183)
+
+The paywall is "an agent **buys an API call**." [ERC-8183](docs/ERC-8183-jobs.md) is "an agent **hires
+another agent to do a job**", with USDC held in on-chain escrow until the work is approved — and it
+reuses the same ERC-8004 identities, closing the loop **identity → hired → delivered → paid → reputation**.
+
+```bash
+npm run run-job
+```
+
+This runs the whole lifecycle on testnet via Arc's AgenticCommerce contract
+(`0x0747EEf0706327138c69792bF28Cd525089e4583`): the client (`BUYER`) hires a freshly-registered provider
+agent, funds escrow, the provider submits a deliverable hash, an evaluator releases payment, and the
+client leaves on-chain reputation feedback. A real run:
+
+```text
+[1] provider registers an ERC-8004 identity -> agent #670635
+[2] createJob  -> job #124027   status 0 (Open)
+[4] approve + fund (0.05 USDC)  status 1 (Funded)
+[5] submit deliverable hash     status 2 (Submitted)
+[6] evaluator approves          status 3 (Completed) — provider received 0.05 USDC
+[7] client leaves ERC-8004 feedback (job-quality 95)
+```
+
+See [docs/ERC-8183-jobs.md](docs/ERC-8183-jobs.md) for roles, the full lifecycle, status enum, and caveats.
+
 ## What's in here
 
 | Path | What it is |
@@ -159,6 +185,7 @@ valid owner signature    -> firehose 402, summarize $0.001   (unlocked + discoun
 | `lib/erc8004.ts` | ERC-8004 Identity + Reputation registry addresses + ABIs. |
 | `lib/reputation.ts` | Reads an agent's ERC-8004 reputation (cached) for gating/pricing. |
 | `lib/agentauth.ts` | Verifies an agent's signed proof-of-control before trusting its claimed id. |
+| `lib/erc8183.ts` | AgenticCommerce (ERC-8183) job-escrow address + ABI. |
 | `public/.well-known/agent-card.json` | The buyer agent's metadata card (its `agentURI`). |
 | `app/api/premium/*` | Four paid routes: `summarize` ($0.002, ½ off at rep≥60), `keywords` ($0.001), `fx-rate` ($0.0005), `firehose` ($0.0001, rep-gated ≥60). |
 | `app/api/payments`, `app/api/gateway/balance` | Dashboard data (revenue store + seller Gateway balance). |
@@ -167,6 +194,7 @@ valid owner signature    -> firehose 402, summarize $0.001   (unlocked + discoun
 | `scripts/generate-wallets.mts` | Creates seller + buyer wallets into `.env.local`. |
 | `scripts/register-agent.mts` | Mints the buyer's ERC-8004 on-chain identity, writes `AGENT_ID`. |
 | `scripts/give-feedback.mts` | Seller records on-chain ERC-8004 feedback (reputation) for the agent. |
+| `scripts/run-job.mts` | Runs a full ERC-8183 agent-to-agent job (hire → escrow → deliver → pay → rate). |
 
 ## Quick start
 
