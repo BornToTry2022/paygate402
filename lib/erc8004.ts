@@ -101,6 +101,15 @@ export const reputationRegistryAbi = [
   },
 ] as const;
 
+/**
+ * Canonical message an agent signs (EIP-191 personal_sign) to prove it controls
+ * its on-chain identity. The verifier recovers the signer and checks it equals the
+ * agent's owner / registered wallet. KEEP IN SYNC between buyer and verifier.
+ */
+export function agentControlMessage(agentId: string, timestamp: string | number): string {
+  return `PayGate402 agent control proof\nagentId: ${agentId}\ntimestamp: ${timestamp}`;
+}
+
 /** Explorer link to an agent identity NFT instance. */
 export function agentExplorerUrl(agentId: string | number | bigint): string {
   return `https://testnet.arcscan.app/token/${ERC8004.identityRegistry}/instance/${agentId}`;

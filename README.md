@@ -137,6 +137,18 @@ POST /api/premium/summarize    -> 402 ... amount 1000   ($0.001, 50% discount)
 That's the agentic-commerce loop — **identity → reputation → price/access**, all on-chain. (Reads are
 cached ~30s; `getSummary` is queried via the agent's `getClients` list, since it reverts on an empty set.)
 
+**Identity is verified, not just claimed.** An `X-Agent-Id` header alone is spoofable — anyone could
+claim a reputable agent's id. So PayGate402 only honors a claimed identity when the caller also sends an
+`X-Agent-Signature` over a timestamped message; the server recovers the signer and checks it is the
+agent's on-chain owner (`ownerOf` / `getAgentWallet`) before consulting reputation. A spoofed id or
+forged signature falls through to anonymous (full price, gated endpoints denied):
+
+```text
+spoof id, NO signature   -> firehose 403, summarize $0.002   (no benefit)
+forged signature         -> firehose 403, summarize $0.002   (signer != owner)
+valid owner signature    -> firehose 402, summarize $0.001   (unlocked + discount)
+```
+
 ## What's in here
 
 | Path | What it is |
@@ -146,6 +158,7 @@ cached ~30s; `getSummary` is queried via the agent's `getClients` list, since it
 | `lib/arc.ts` / `lib/text.ts` | Arc constants; zero-dep summarizer/keyword helpers. |
 | `lib/erc8004.ts` | ERC-8004 Identity + Reputation registry addresses + ABIs. |
 | `lib/reputation.ts` | Reads an agent's ERC-8004 reputation (cached) for gating/pricing. |
+| `lib/agentauth.ts` | Verifies an agent's signed proof-of-control before trusting its claimed id. |
 | `public/.well-known/agent-card.json` | The buyer agent's metadata card (its `agentURI`). |
 | `app/api/premium/*` | Four paid routes: `summarize` ($0.002, ½ off at rep≥60), `keywords` ($0.001), `fx-rate` ($0.0005), `firehose` ($0.0001, rep-gated ≥60). |
 | `app/api/payments`, `app/api/gateway/balance` | Dashboard data (revenue store + seller Gateway balance). |

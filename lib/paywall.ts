@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ARC, getSellerAddress } from "@/lib/arc";
 import { recordPayment } from "@/lib/store";
 import { getReputation } from "@/lib/reputation";
+import { verifyAgentControl } from "@/lib/agentauth";
 
 /**
  * withPaywall — wrap any Next.js route handler so it requires an x402 USDC
@@ -74,8 +75,16 @@ export function withPaywall(
       );
     }
 
-    const agentId = req.headers.get("x-agent-id");
-    const agentAddress = req.headers.get("x-agent-address");
+    // Only trust the claimed identity if the caller proves control of it: an
+    // `X-Agent-Signature` over a timestamped message, verified against the agent's
+    // on-chain owner. A bare `X-Agent-Id` is spoofable, so unverified/spoofed ids
+    // fall through to anonymous (full price, gated endpoints denied).
+    const agentId = await verifyAgentControl(
+      req.headers.get("x-agent-id"),
+      req.headers.get("x-agent-signature"),
+      req.headers.get("x-agent-timestamp"),
+    );
+    const agentAddress = agentId ? req.headers.get("x-agent-address") : null;
 
     // --- ERC-8004 reputation gate / dynamic pricing (read on both the 402 and the paid retry;
     // getReputation is cached so both compute the same effective price) ---
@@ -92,7 +101,7 @@ export function withPaywall(
             agentId: agentId ?? null,
             hint: agentId
               ? "Build ERC-8004 reputation (seller feedback) to unlock this endpoint."
-              : "Register an ERC-8004 identity and earn reputation to access this endpoint.",
+              : "Present a verified ERC-8004 identity (X-Agent-Signature) with sufficient reputation to access this endpoint.",
           },
           { status: 403 },
         );

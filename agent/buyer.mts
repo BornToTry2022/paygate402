@@ -23,6 +23,7 @@ import {
 import { arcTestnet } from "viem/chains";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import * as readline from "node:readline/promises";
+import { agentControlMessage } from "../lib/erc8004.ts";
 
 const ARC_TESTNET_USDC = "0x3600000000000000000000000000000000000000" as const;
 const ARC_TESTNET_RPC = "https://rpc.testnet.arc.network";
@@ -50,9 +51,26 @@ const endpoints = [
 // --- ERC-8004 on-chain identity (optional) ---
 const agentId = process.env.AGENT_ID;
 const agentAddress = process.env.AGENT_ADDRESS;
-const agentHeaders: Record<string, string> | undefined = agentId
-  ? { "X-Agent-Id": agentId, "X-Agent-Address": agentAddress ?? "" }
-  : undefined;
+
+// Proof-of-control headers: the seller treats X-Agent-Id as untrusted unless we also
+// sign a timestamped message with the agent's owner key (funder wallet). Cached and
+// refreshed every 2 min; the server accepts proofs within a 5-min window.
+let proofCache: { headers: Record<string, string>; exp: number } | null = null;
+async function getAgentHeaders(): Promise<Record<string, string> | undefined> {
+  if (!agentId) return undefined;
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (proofCache && proofCache.exp > nowSec) return proofCache.headers;
+  const ts = String(nowSec);
+  const signature = await funderAccount.signMessage({ message: agentControlMessage(agentId, ts) });
+  const headers = {
+    "X-Agent-Id": agentId,
+    "X-Agent-Address": agentAddress ?? funderAccount.address,
+    "X-Agent-Timestamp": ts,
+    "X-Agent-Signature": signature,
+  };
+  proofCache = { headers, exp: nowSec + 120 };
+  return headers;
+}
 
 // --- CLI args ---
 let spendingLimit: number | null = null;
@@ -226,8 +244,10 @@ function startPaymentLoop() {
     index++;
     inFlight++;
     const start = Date.now();
-    gateway
-      .pay(ep.url, { method: ep.method, body: (ep as { body?: unknown }).body, headers: agentHeaders })
+    getAgentHeaders()
+      .then((headers) =>
+        gateway.pay(ep.url, { method: ep.method, body: (ep as { body?: unknown }).body, headers }),
+      )
       .then((result) => {
         inFlight--;
         const ms = Date.now() - start;
