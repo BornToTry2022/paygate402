@@ -1,0 +1,19 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# local runtime data (JSON payment store) — never commit
+/.data/
+
+# env & secrets — NEVER commit private keys
+.env
+.env.local
+.env*.local
+
+# misc
+*.tsbuildinfo
+.DS_Store

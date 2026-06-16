@@ -1,0 +1,28 @@
+{
+  "name": "paygate402",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Drop-in x402 paywall that turns any API route into an agent-payable, sub-cent USDC storefront on Circle Arc.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "generate-wallets": "node --experimental-transform-types --no-warnings scripts/generate-wallets.mts",
+    "agent": "node --experimental-transform-types --no-warnings --env-file=.env.local agent/buyer.mts"
+  },
+  "dependencies": {
+    "@circle-fin/x402-batching": "^2.0.4",
+    "@x402/core": "^2.6.0",
+    "@x402/evm": "^2.6.0",
+    "next": "^16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "viem": "^2.47.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.4.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
+  }
+}
