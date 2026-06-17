@@ -120,7 +120,18 @@ async function main() {
 
     const ARC_TESTNET_USDC = "0x3600000000000000000000000000000000000000" as `0x${string}`;
     const ARC_TESTNET_RPC = "https://rpc.testnet.arc.network";
-    const DEPOSIT_AMOUNT = process.env.DEPOSIT_AMOUNT ?? "1";
+    // Clamp the per-deposit amount to a safety ceiling so a typo (e.g. DEPOSIT_AMOUNT=100)
+    // can't move large funds. Total on-chain USDC moved to the ephemeral wallet is also
+    // capped (MAX_TOTAL_DEPOSIT_USD) across the initial deposit + any redeposits.
+    const MAX_DEPOSIT_USD = 5;
+    const MAX_TOTAL_DEPOSIT_USD = 5;
+    const requestedDeposit = parseFloat(process.env.DEPOSIT_AMOUNT ?? "1");
+    const depositNum = Number.isFinite(requestedDeposit) && requestedDeposit > 0 ? Math.min(requestedDeposit, MAX_DEPOSIT_USD) : 1;
+    if (Number.isFinite(requestedDeposit) && requestedDeposit > MAX_DEPOSIT_USD) {
+      console.warn(`[research-agent] DEPOSIT_AMOUNT ${requestedDeposit} exceeds the ${MAX_DEPOSIT_USD} USDC ceiling — capping to ${MAX_DEPOSIT_USD}.`);
+    }
+    const DEPOSIT_AMOUNT = String(depositNum);
+    let totalDepositedUsd = 0;
     const GAS_FUND_AMOUNT = parseEther("0.01");
 
     const funderKey = process.env.BUYER_PRIVATE_KEY as `0x${string}`;
@@ -159,6 +170,7 @@ async function main() {
     console.log(`[research-agent] Depositing ${DEPOSIT_AMOUNT} USDC into Gateway...`);
     const deposit = await gateway.deposit(DEPOSIT_AMOUNT);
     console.log(`[research-agent] Deposit TX: ${deposit.depositTxHash}`);
+    totalDepositedUsd += depositNum;
 
     // getAgentHeaders closure (mirrors buyer.mts)
     const _getAgentHeaders = async (): Promise<Record<string, string> | undefined> => {
@@ -182,6 +194,10 @@ async function main() {
     const checkAndRedeposit = async () => {
       const balances = await gateway!.getBalances();
       if (balances.gateway.available < REDEPOSIT_THRESHOLD) {
+        if (totalDepositedUsd + depositNum > MAX_TOTAL_DEPOSIT_USD) {
+          console.warn(`[research-agent] total-deposit ceiling ${MAX_TOTAL_DEPOSIT_USD} USDC reached — not redepositing.`);
+          return;
+        }
         console.log(`[research-agent] Gateway balance low (${balances.gateway.formattedAvailable}), redepositing...`);
         const refillTx = await funderWallet.writeContract({
           address: ARC_TESTNET_USDC,
@@ -191,6 +207,7 @@ async function main() {
         });
         await publicClient.waitForTransactionReceipt({ hash: refillTx });
         await gateway!.deposit(DEPOSIT_AMOUNT);
+        totalDepositedUsd += depositNum;
       }
     };
 
