@@ -16,8 +16,15 @@ export async function guardrailGate(ctx: GuardRailContext): Promise<GuardRailDec
   }
 
   const now = new Date();
-  const score = (await getReputation(ctx.agentId)).score;
-  const payments = await listPayments(1000);
+  // NOTE: signals are keyed by agent/payer ONLY — not by merchant or endpoint.
+  // PaymentEvent has no merchantId, so dailyCap and velocity aggregate an agent's
+  // spend across ALL merchants/endpoints, not just this merchantId. This is fine
+  // for the single-merchant ("press") demo; a future multi-merchant/fleet plan must
+  // record merchantId on PaymentEvent and filter signals here if it needs isolation.
+  const [score, payments] = await Promise.all([
+    getReputation(ctx.agentId).then((r) => r.score),
+    listPayments(1000),
+  ]);
   const key = paymentKey({ payer: ctx.payer, agentId: ctx.agentId });
 
   return evaluate(policy, ctx, {
