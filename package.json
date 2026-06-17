@@ -5,6 +5,8 @@
   "description": "Drop-in x402 paywall that turns any API route into an agent-payable, sub-cent USDC storefront on Circle Arc.",
   "scripts": {
     "dev": "next dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "build": "next build",
     "start": "next start",
     "generate-wallets": "node --experimental-transform-types --no-warnings scripts/generate-wallets.mts",
@@ -26,6 +28,7 @@
     "@types/node": "^25.4.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.9"
   }
 }
