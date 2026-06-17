@@ -408,7 +408,7 @@ git commit -m "feat(guardrail): store-derived daily-spend and velocity signals"
   - `evaluate(policy: GuardRailPolicy, ctx: GuardRailContext, signals: GuardRailSignals): GuardRailDecision`
   - `guardrailResponseFor(d: GuardRailDecision, endpoint: string): { status: number; body: Record<string, unknown> } | null` — `null` means "allow, continue"; non-null is the HTTP block response.
 
-**Decision order (first match wins):** disabled → allow; not on allowlist → deny; per-tx amount > reputation cap AND ≤ approval threshold → deny; amount > approval threshold → escalate; daily cap exceeded → deny; velocity exceeded → deny; else allow. `remainingDaily = max(0, dailyCapUsd − todaysSpendUsd)` on every decision.
+**Decision order (first match wins, matches the code below):** disabled → allow; not on allowlist → deny; **amount > approval threshold → escalate**; **amount > reputation cap → deny** (reached only for amounts already within the approval threshold, since larger amounts escalate first — so this is equivalent to "over cap AND ≤ threshold"); daily cap exceeded → deny; velocity exceeded → deny; else allow. `remainingDaily = max(0, dailyCapUsd − todaysSpendUsd)` on every decision. The escalate-before-cap order is intentional: a large payment from a low-reputation agent must reach a human, not be silently denied.
 
 - [ ] **Step 1: Write the failing test** — `lib/guardrail/engine.test.ts`
 
