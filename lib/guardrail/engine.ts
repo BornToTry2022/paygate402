@@ -42,6 +42,11 @@ export function evaluate(
     }
   }
 
+  // Order matters: escalate (over approval threshold) is checked BEFORE the
+  // reputation-cap deny. Because of that, the cap-deny branch below is only
+  // reached for amounts already within the approval threshold — i.e. it means
+  // "over cap AND <= threshold". A large payment from a low-reputation agent
+  // must reach a human (escalate), not be silently denied.
   if (ctx.amountUsdc > policy.humanApprovalThresholdUsd) {
     return { decision: "escalate", reason: `amount $${ctx.amountUsdc} over approval threshold $${policy.humanApprovalThresholdUsd}`, ...base };
   }

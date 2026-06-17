@@ -44,6 +44,11 @@ describe("evaluate", () => {
     const d = evaluate(policy, ctx({ amountUsdc: 0.5 }), sig({ reputationScore: 100 }));
     expect(d.decision).toBe("escalate");
   });
+  it("escalates an above-threshold payment even from a low-reputation agent (escalate precedes cap-deny)", () => {
+    // score 0 -> cap 0.01; amount 0.5 is over BOTH cap and the 0.25 threshold -> must escalate, not deny
+    const d = evaluate(policy, ctx({ amountUsdc: 0.5 }), sig({ reputationScore: 0 }));
+    expect(d.decision).toBe("escalate");
+  });
   it("denies when the daily cap is already spent", () => {
     const d = evaluate(policy, ctx({ amountUsdc: 0.003 }), sig({ todaysSpendUsd: 1.0 }));
     expect(d.decision).toBe("deny");
