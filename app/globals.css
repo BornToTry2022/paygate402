@@ -7,6 +7,7 @@
   --muted: #9aa4b2;
   --accent: #4ea1ff;
   --green: #3fb950;
+  --red: #f85149;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
@@ -127,6 +128,10 @@ td.mono,
 .price {
   color: var(--green);
 }
+.badge.fail {
+  border-color: #5c2526;
+  color: var(--red);
+}
 
 pre {
   background: #0a0d13;
@@ -146,6 +151,100 @@ pre {
   height: 1px;
   background: var(--border);
   margin: 28px 0;
+}
+
+/* --- ERC-8183 job lifecycle stepper --- */
+.jobhead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+.grow {
+  flex: 1;
+}
+.stepper {
+  display: flex;
+  align-items: flex-start;
+  margin: 4px 0 2px;
+}
+.jnode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  min-width: 62px;
+}
+.jdot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--panel-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+}
+a.jdot:hover {
+  text-decoration: none;
+  filter: brightness(1.15);
+}
+.jnode.done .jdot {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(63, 185, 80, 0.12);
+}
+.jnode.active .jdot {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(78, 161, 255, 0.12);
+  animation: pulse-accent 2s infinite;
+}
+.jnode.failed .jdot {
+  border-color: var(--red);
+  color: var(--red);
+  background: rgba(248, 81, 73, 0.12);
+  animation: none;
+}
+.jnode.failed .jlbl {
+  color: var(--red);
+}
+.jlbl {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.jnode.done .jlbl {
+  color: var(--text);
+}
+.jnode.active .jlbl {
+  color: var(--accent);
+}
+.jbar {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  margin-top: 12px; /* vertically center on the 26px dot */
+  min-width: 14px;
+}
+.jbar.done {
+  background: var(--green);
+}
+@keyframes pulse-accent {
+  0% {
+    box-shadow: 0 0 0 0 rgba(78, 161, 255, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(78, 161, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(78, 161, 255, 0);
+  }
 }
 .live {
   width: 8px;

@@ -18,6 +18,59 @@ real. No accounts, no API keys: **payment is identity**.
 > settlement (the `GatewayWalletBatched` x402 scheme), and USDC is Arc's native gas token. On a
 > generic chain, per-call gas would dwarf a $0.001 charge — this pattern only pencils out here.
 
+## Architecture overview
+
+PayGate402 stacks four of Arc's agentic-economy primitives into one coherent loop — **an agent
+gets an identity, earns reputation by paying reliably, is priced and gated by that reputation, and
+can be hired by other agents for escrowed work** — all settling in USDC, all observable on a live
+dashboard.
+
+```mermaid
+flowchart TB
+  subgraph BUYER["Buyer agent"]
+    W["Ephemeral spend wallet · GatewayClient"]
+    AID["ERC-8004 identity #668408 · signed proof-of-control"]
+  end
+
+  subgraph SELLER["PayGate402 · Next.js seller"]
+    PW["withPaywall — 402 challenge · verify · settle"]
+    GATE["Reputation gate + dynamic price"]
+    JOBRUN["run-job — create · fund · submit · complete · rate"]
+    STORE["JSON store · .data/payments.json + jobs.json"]
+    DASH["Live dashboard"]
+  end
+
+  subgraph ARC["Arc Testnet — USDC is the native gas token"]
+    GW["Circle Gateway · batched USDC settlement"]
+    IDR["ERC-8004 IdentityRegistry"]
+    RPR["ERC-8004 ReputationRegistry"]
+    AC["ERC-8183 AgenticCommerce · USDC escrow"]
+  end
+
+  W -->|"request → 402 → sign EIP-3009 → retry"| PW
+  AID -.->|"X-Agent-Id / X-Agent-Signature"| PW
+  AID -.->|"register()"| IDR
+  PW --> GATE
+  GATE -.->|"read score"| RPR
+  PW -->|"verify + settle"| GW
+  PW --> STORE
+  JOBRUN -->|"escrow lifecycle"| AC
+  JOBRUN -.->|"giveFeedback()"| RPR
+  JOBRUN --> STORE
+  STORE --> DASH
+```
+
+| Plane | What it adds | Arc primitive | PayGate402 code |
+| --- | --- | --- | --- |
+| **Payments** | An agent buys an API call for sub-cent USDC; gas amortized across thousands of payments | Circle Gateway batching (`GatewayWalletBatched` x402 scheme) | `lib/paywall.ts` |
+| **Identity** | Each payer carries a verifiable, on-chain identity — not just an address — proven by signature | ERC-8004 `IdentityRegistry` | `lib/erc8004.ts`, `lib/agentauth.ts` |
+| **Reputation** | The seller prices and gates endpoints by the agent's on-chain score | ERC-8004 `ReputationRegistry` | `lib/reputation.ts` |
+| **Jobs** | One agent hires another; USDC sits in escrow until an evaluator approves the deliverable | ERC-8183 `AgenticCommerce` | `lib/erc8183.ts`, `lib/jobs.ts` |
+| **Observability** | Live revenue + job-lifecycle visualization, no external services | zero-dep JSON store | `lib/store.ts`, `lib/jobs.ts`, `app/dashboard` |
+
+The rest of this README walks each plane bottom-up. For a narrative version, see the
+[blog post](docs/blog.md).
+
 ## Demo
 
 A real run: an autonomous buyer agent — presenting its **on-chain ERC-8004 identity (agent #668408)** —
@@ -165,13 +218,20 @@ agent, funds escrow, the provider submits a deliverable hash, an evaluator relea
 client leaves on-chain reputation feedback. A real run:
 
 ```text
-[1] provider registers an ERC-8004 identity -> agent #670635
-[2] createJob  -> job #124027   status 0 (Open)
+[1] provider registers an ERC-8004 identity -> agent #719410
+[2] createJob  -> job #124751   status 0 (Open)
 [4] approve + fund (0.05 USDC)  status 1 (Funded)
 [5] submit deliverable hash     status 2 (Submitted)
 [6] evaluator approves          status 3 (Completed) — provider received 0.05 USDC
 [7] client leaves ERC-8004 feedback (job-quality 95)
 ```
+
+**The dashboard visualizes the whole lifecycle.** `run-job` persists each phase to `.data/jobs.json`
+as it happens, so the dashboard (which polls every 2.5s) animates the job advancing
+`Created → Funded → Submitted → Completed → Rated` — every node links to its on-chain transaction,
+and the provider's earned reputation shows as a ★ score:
+
+![PayGate402 dashboard — an ERC-8183 agent-to-agent job, escrowed and released on Arc, with its full lifecycle stepper](docs/dashboard-jobs.png)
 
 See [docs/ERC-8183-jobs.md](docs/ERC-8183-jobs.md) for roles, the full lifecycle, status enum, and caveats.
 
@@ -186,10 +246,11 @@ See [docs/ERC-8183-jobs.md](docs/ERC-8183-jobs.md) for roles, the full lifecycle
 | `lib/reputation.ts` | Reads an agent's ERC-8004 reputation (cached) for gating/pricing. |
 | `lib/agentauth.ts` | Verifies an agent's signed proof-of-control before trusting its claimed id. |
 | `lib/erc8183.ts` | AgenticCommerce (ERC-8183) job-escrow address + ABI. |
+| `lib/jobs.ts` | Zero-dependency JSON store for the ERC-8183 job lifecycle + step timeline (drives the dashboard). |
 | `public/.well-known/agent-card.json` | The buyer agent's metadata card (its `agentURI`). |
 | `app/api/premium/*` | Four paid routes: `summarize` ($0.002, ½ off at rep≥60), `keywords` ($0.001), `fx-rate` ($0.0005), `firehose` ($0.0001, rep-gated ≥60). |
-| `app/api/payments`, `app/api/gateway/balance` | Dashboard data (revenue store + seller Gateway balance). |
-| `app/page.tsx`, `app/dashboard/page.tsx` | Landing + live revenue dashboard. |
+| `app/api/payments`, `app/api/jobs`, `app/api/gateway/balance` | Dashboard data (revenue store + job store + seller Gateway balance). |
+| `app/page.tsx`, `app/dashboard/page.tsx` | Landing + live dashboard (revenue **and** the ERC-8183 job-lifecycle stepper). |
 | `agent/buyer.mts` | Autonomous buyer agent (`GatewayClient`) with a `--limit` spend cap. |
 | `scripts/generate-wallets.mts` | Creates seller + buyer wallets into `.env.local`. |
 | `scripts/register-agent.mts` | Mints the buyer's ERC-8004 on-chain identity, writes `AGENT_ID`. |

@@ -27,6 +27,7 @@ import { arcTestnet } from "viem/chains";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { AGENTIC_COMMERCE, agenticCommerceAbi, JOB_STATUS } from "../lib/erc8183.ts";
 import { ERC8004, identityRegistryAbi, reputationRegistryAbi, agentExplorerUrl } from "../lib/erc8004.ts";
+import { upsertJob } from "../lib/jobs.ts";
 
 const RPC = "https://rpc.testnet.arc.network";
 const USDC = "0x3600000000000000000000000000000000000000" as const;
@@ -116,6 +117,19 @@ const created = parseEventLogs({
 const jobId = (created?.args.jobId ?? jobIdSim) as bigint;
 console.log(`   job #${jobId} created: ${ex(createHash)}`);
 
+// Persist for the dashboard. We upsert after every phase so the live dashboard
+// (it polls /api/jobs every 2.5s) animates the job advancing Created → … → Rated.
+await upsertJob(jobId.toString(), {
+  client: client.address,
+  provider: providerAcct.address,
+  evaluator: evaluatorAcct.address,
+  providerAgentId,
+  description: "Summarize the Arc nanopayments dataset",
+  budgetUsdc: usdc(BUDGET),
+  status: 0,
+  step: { phase: "Created", ts: new Date().toISOString(), tx: createHash },
+});
+
 await logStatus("after createJob");
 
 console.log("\n[3] provider sets budget...");
@@ -133,21 +147,29 @@ await send(clientW, "approve", {
   functionName: "approve",
   args: [AGENTIC_COMMERCE, BUDGET],
 });
-await send(clientW, "fund", {
+const fundHash = await send(clientW, "fund", {
   address: AGENTIC_COMMERCE,
   abi: agenticCommerceAbi,
   functionName: "fund",
   args: [jobId, "0x"],
 });
+await upsertJob(jobId.toString(), {
+  status: 1,
+  step: { phase: "Funded", ts: new Date().toISOString(), tx: fundHash },
+});
 await logStatus("after fund (escrowed)");
 
 console.log("\n[5] provider submits deliverable hash...");
 const deliverable = keccak256(toBytes("PayGate402 nanopayments dataset summary v1"));
-await send(providerW, "submit", {
+const submitHash = await send(providerW, "submit", {
   address: AGENTIC_COMMERCE,
   abi: agenticCommerceAbi,
   functionName: "submit",
   args: [jobId, deliverable, "0x"],
+});
+await upsertJob(jobId.toString(), {
+  status: 2,
+  step: { phase: "Submitted", ts: new Date().toISOString(), tx: submitHash },
 });
 await logStatus("after submit");
 
@@ -163,6 +185,11 @@ const completeLogs = (await pub.getTransactionReceipt({ hash: completeHash })).l
 const released = parseEventLogs({ abi: agenticCommerceAbi, eventName: "PaymentReleased", logs: completeLogs })[0];
 const feePaid = parseEventLogs({ abi: agenticCommerceAbi, eventName: "EvaluatorFeePaid", logs: completeLogs })[0];
 const providerAfter = await balOf(providerAcct.address);
+await upsertJob(jobId.toString(), {
+  status: 3,
+  releasedUsdc: usdc(released ? released.args.amount : providerAfter - providerBefore),
+  step: { phase: "Completed", ts: new Date().toISOString(), tx: completeHash },
+});
 await logStatus("after complete");
 
 console.log(`\n   provider received ${usdc(providerAfter - providerBefore)} USDC` +
@@ -171,11 +198,16 @@ console.log(`\n   provider received ${usdc(providerAfter - providerBefore)} USDC
 
 // --- Phase 3: reputation loop ---
 console.log("\n[7] client leaves ERC-8004 feedback for the provider agent...");
-await send(clientW, "giveFeedback", {
+const FEEDBACK_SCORE = 95;
+const feedbackHash = await send(clientW, "giveFeedback", {
   address: ERC8004.reputationRegistry,
   abi: reputationRegistryAbi,
   functionName: "giveFeedback",
-  args: [BigInt(providerAgentId), 95n, 0, "job-quality", "", "agentic-commerce", "", ZERO32],
+  args: [BigInt(providerAgentId), BigInt(FEEDBACK_SCORE), 0, "job-quality", "", "agentic-commerce", "", ZERO32],
+});
+await upsertJob(jobId.toString(), {
+  feedbackScore: FEEDBACK_SCORE,
+  step: { phase: "Rated", ts: new Date().toISOString(), tx: feedbackHash },
 });
 
 console.log(`\n✅ Done. Agent #${providerAgentId} was hired, delivered, got paid, and earned reputation.`);

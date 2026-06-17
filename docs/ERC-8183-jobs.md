@@ -73,6 +73,28 @@ npm run run-job
 - Job creation tx: `0x29fe9f5b2fc2acf645724fa287fbe98184652815d8f6afd6c72cc757cbeef3bb`
 - Escrow release tx: `0x55c97e6abe6ebf8de23f0028683f6105cc349cdd13fa5b6ba575a78f54449e05`
 
+## On the dashboard
+
+`run-job` doesn't just log — it **persists each phase** to `.data/jobs.json` via
+[`lib/jobs.ts`](../lib/jobs.ts) as the transactions confirm. The dashboard reads
+[`/api/jobs`](../app/api/jobs/route.ts) every 2.5s, so a job **animates live** through a lifecycle
+stepper while `run-job` is still running:
+
+```
+Created ── Funded ── Submitted ── Completed ── Rated
+   ✓         ✓          ✓            ✓           ✓     ★ 95/100
+```
+
+Each node links to the on-chain tx that advanced it; the card shows the provider's ERC-8004 agent
+link, the escrow budget, the released amount, and the reputation score the client left. The store is
+deliberately a sibling of the payment store ([`lib/store.ts`](../lib/store.ts)) and kept dependency-free
+so the same JSON file is shared by the `run-job` process (writer) and the Next.js server (reader).
+
+![Dashboard — an ERC-8183 job escrowed and released on Arc, with its full lifecycle stepper](dashboard-jobs.png)
+
+A second verified run (the one screenshotted above): provider **agent #719410**, **job #124751**,
+0.05 USDC escrowed → released, rated 95.
+
 ## Notes & caveats
 
 - **Testnet only.** The provider/evaluator wallets are generated per run; their gas is topped up from
