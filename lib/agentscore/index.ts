@@ -49,13 +49,17 @@ export async function listScores(opts: { limit?: number } = {}): Promise<ScoreRo
     for (const p of payments) if (p.agentId) ids.add(p.agentId);
     for (const j of jobs) if (j.providerAgentId) ids.add(j.providerAgentId);
     const rows = await Promise.all([...ids].map((id) => computeRow(id, payments, jobs)));
-    rows.sort((a, b) => b.kya - a.kya);
+    rows.sort((a, b) => b.kya - a.kya || a.agentId.localeCompare(b.agentId));
     cache = { rows: rows.map((r, i) => ({ ...r, rank: i + 1 })), exp: now + TTL_MS };
   }
   return opts.limit ? cache.rows.slice(0, opts.limit) : cache.rows;
 }
 
-/** KYA for one agent (may not be in the store list, e.g. a brand-new id). Rank is relative to listScores. */
+/**
+ * KYA for one agent (may be an id absent from the stores, e.g. a brand-new id).
+ * Fetches the stores once for the row; `rank` is computed against the ≤60s-cached
+ * listScores() snapshot, so the rank can lag store changes within the TTL window.
+ */
 export async function getScore(agentId: string): Promise<ScoreRow> {
   const [payments, jobs] = (await Promise.all([listPayments(1000), listJobs(200)])) as [PaymentLike[], JobLike[]];
   const row = await computeRow(agentId, payments, jobs);
