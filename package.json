@@ -13,7 +13,8 @@
     "register-agent": "node --experimental-transform-types --no-warnings --env-file=.env.local scripts/register-agent.mts",
     "give-feedback": "node --experimental-transform-types --no-warnings --env-file=.env.local scripts/give-feedback.mts",
     "run-job": "node --experimental-transform-types --no-warnings --env-file=.env.local scripts/run-job.mts",
-    "agent": "node --experimental-transform-types --no-warnings --env-file=.env.local agent/buyer.mts"
+    "agent": "node --experimental-transform-types --no-warnings --env-file=.env.local agent/buyer.mts",
+    "research-agent": "node --experimental-transform-types --no-warnings --env-file=.env.local agent/research-agent.mts"
   },
   "dependencies": {
     "@circle-fin/x402-batching": "^2.0.4",
