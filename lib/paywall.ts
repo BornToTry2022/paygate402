@@ -4,6 +4,9 @@ import { ARC, getSellerAddress } from "@/lib/arc";
 import { recordPayment } from "@/lib/store";
 import { getReputation } from "@/lib/reputation";
 import { verifyAgentControl } from "@/lib/agentauth";
+import { guardrailGate } from "@/lib/guardrail/gate";
+import { guardrailResponseFor } from "@/lib/guardrail/engine";
+import { enqueueApproval } from "@/lib/guardrail/approvals";
 
 /**
  * withPaywall — wrap any Next.js route handler so it requires an x402 USDC
@@ -58,6 +61,8 @@ export interface PaywallOpts {
   minScore?: number;
   /** Charge a discounted price to agents whose reputation score >= atScore. */
   discount?: { atScore: number; price: string };
+  /** Enable GuardRail spend-policy enforcement for this endpoint, scoped to a merchant id. */
+  guardrail?: { merchantId: string };
 }
 
 export function withPaywall(
@@ -149,6 +154,39 @@ export function withPaywall(
         );
       }
 
+      // --- GuardRail: evaluate spend policy before settling ---
+      let grDecision: "allow" | "escalate" = "allow";
+      let grTier: string | undefined;
+      let grRemaining: number | undefined;
+      if (opts.guardrail) {
+        const amountUsd = Number(requirements.amount) / 1e6;
+        const payerForGate = (verifyResult.payer ?? null) as string | null;
+        const decision = await guardrailGate({
+          agentId,
+          agentAddress,
+          payer: payerForGate,
+          merchantId: opts.guardrail.merchantId,
+          endpoint,
+          amountUsdc: amountUsd,
+        });
+        const blocked = guardrailResponseFor(decision, endpoint);
+        if (blocked) {
+          if (decision.decision === "escalate") {
+            await enqueueApproval({
+              endpoint,
+              agentId,
+              payer: payerForGate,
+              amountUsdc: amountUsd,
+              reason: decision.reason,
+            }).catch((e) => console.error("[guardrail] enqueue failed:", e));
+          }
+          console.log(`[guardrail] ${decision.decision} ${endpoint} — ${decision.reason}`);
+          return NextResponse.json(blocked.body, { status: blocked.status });
+        }
+        grTier = decision.appliedTier;
+        grRemaining = decision.remainingDaily;
+      }
+
       const settleResult = await facilitator.settle(payload, requirements);
       if (!settleResult.success) {
         return NextResponse.json(
@@ -166,9 +204,11 @@ export function withPaywall(
         amountUsdc,
         network: requirements.network,
         gatewayTx: settleResult.transaction ?? null,
-        // Optional ERC-8004 identity the buyer agent presents about itself.
         agentId,
         agentAddress,
+        decision: opts.guardrail ? grDecision : undefined,
+        policyTier: grTier,
+        remainingDaily: grRemaining,
       }).catch((e) => console.error("[paywall] failed to record payment:", e));
 
       console.log(`[paywall] settled ${endpoint} — ${amountUsdc} USDC from ${payer}`);

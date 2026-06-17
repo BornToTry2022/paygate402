@@ -21,6 +21,10 @@ export interface PaymentEvent {
   /** ERC-8004 on-chain agent identity that made this payment, if presented. */
   agentId: string | null;
   agentAddress: string | null;
+  /** GuardRail decision recorded with the settled payment (optional; absent for ungoverned endpoints). */
+  decision?: "allow" | "escalate";
+  policyTier?: string;
+  remainingDaily?: number;
   ts: string;
 }
 
