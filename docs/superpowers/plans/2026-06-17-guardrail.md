@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **No `@/` path alias inside unit-tested logic modules.** Tested modules (`lib/guardrail/{policy,reputation-cap,signals,engine,approvals}.ts`) import each other with **relative** paths and never import `@/lib/...`. Only the Next-runtime files (`gate.ts`, `paywall.ts`, route handlers, the page) use the `@/` alias. (vitest resolves `@`, but keeping logic alias-free keeps the seams clean and the units trivially testable.)
+- **No `@/` path alias inside unit-tested logic modules.** Tested modules (`lib/guardrail/{policy,reputation-cap,signals,engine,approvals}.ts`) import each other with **extensionless relative** paths (e.g. `./policy`, NOT `./policy.ts`) and never import `@/lib/...`. Only the Next-runtime files (`gate.ts`, `paywall.ts`, route handlers, the page) use the `@/` alias. (vitest/Vite resolves extensionless `.ts` imports; a `.ts` extension in the specifier errors under `tsc`/`next build` with TS2307, so never write it.)
 - **The decision core is pure and synchronous.** `evaluate(policy, ctx, signals)` performs no I/O and no `await`. All async I/O (RPC, file reads) happens in `gate.ts`.
 - **GuardRail defaults to off.** With no enabled policy for a merchant, the gate returns an `allow` decision with reason `"guardrail disabled"` and nothing in the existing payment flow changes.
 - **USDC amounts are dollars as `number`** at the GuardRail layer (e.g. `0.003`), NOT atomic units. Convert at the boundary only.
@@ -92,7 +92,7 @@ export default defineConfig({
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { loadPolicy, savePolicy, DEFAULT_POLICY } from "./policy.ts";
+import { loadPolicy, savePolicy, DEFAULT_POLICY } from "./policy";
 
 const FILE = path.join(process.cwd(), ".data", "policies.json");
 
@@ -209,8 +209,8 @@ git commit -m "feat(guardrail): add vitest harness and per-merchant policy stora
 
 ```ts
 import { describe, it, expect } from "vitest";
-import { reputationScaledCap } from "./reputation-cap.ts";
-import { DEFAULT_POLICY } from "./policy.ts";
+import { reputationScaledCap } from "./reputation-cap";
+import { DEFAULT_POLICY } from "./policy";
 
 const P = { ...DEFAULT_POLICY, reputationScaling: { baseCapUsd: 0.01, maxCapUsd: 0.1, atScore: 80 } };
 
@@ -243,7 +243,7 @@ Expected: FAIL — cannot resolve `./reputation-cap.ts`.
 - [ ] **Step 3: Implement `lib/guardrail/reputation-cap.ts`**
 
 ```ts
-import type { GuardRailPolicy } from "./policy.ts";
+import type { GuardRailPolicy } from "./policy";
 
 /**
  * Per-transaction spend cap (USD) scaled by an agent's 0–100 reputation:
@@ -290,7 +290,7 @@ git commit -m "feat(guardrail): reputation-scaled per-transaction cap"
 
 ```ts
 import { describe, it, expect } from "vitest";
-import { paymentKey, sumTodaysSpendUsd, countRecent, type PaymentRow } from "./signals.ts";
+import { paymentKey, sumTodaysSpendUsd, countRecent, type PaymentRow } from "./signals";
 
 const NOW = new Date("2026-06-17T12:00:00.000Z");
 function row(over: Partial<PaymentRow>): PaymentRow {
@@ -414,8 +414,8 @@ git commit -m "feat(guardrail): store-derived daily-spend and velocity signals"
 
 ```ts
 import { describe, it, expect } from "vitest";
-import { evaluate, guardrailResponseFor, type GuardRailContext, type GuardRailSignals } from "./engine.ts";
-import { DEFAULT_POLICY } from "./policy.ts";
+import { evaluate, guardrailResponseFor, type GuardRailContext, type GuardRailSignals } from "./engine";
+import { DEFAULT_POLICY } from "./policy";
 
 const policy = {
   ...DEFAULT_POLICY,
@@ -496,8 +496,8 @@ Expected: FAIL — cannot resolve `./engine.ts`.
 - [ ] **Step 3: Implement `lib/guardrail/engine.ts`**
 
 ```ts
-import type { GuardRailPolicy } from "./policy.ts";
-import { reputationScaledCap } from "./reputation-cap.ts";
+import type { GuardRailPolicy } from "./policy";
+import { reputationScaledCap } from "./reputation-cap";
 
 export interface GuardRailContext {
   agentId: string | null;
@@ -613,7 +613,7 @@ git commit -m "feat(guardrail): pure decision engine and HTTP response mapping"
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { enqueueApproval, listPending, getApproval, resolveApproval } from "./approvals.ts";
+import { enqueueApproval, listPending, getApproval, resolveApproval } from "./approvals";
 
 const FILE = path.join(process.cwd(), ".data", "pending-approvals.json");
 const input = { endpoint: "/api/article/1", agentId: "668408", payer: "0xAA", amountUsdc: 0.5, reason: "over threshold" };
@@ -765,15 +765,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/reputation", () => ({ getReputation: vi.fn() }));
 vi.mock("@/lib/store", () => ({ listPayments: vi.fn() }));
-vi.mock("./policy.ts", async (orig) => {
-  const real = await orig<typeof import("./policy.ts")>();
+vi.mock("./policy", async (orig) => {
+  const real = await orig<typeof import("./policy")>();
   return { ...real, loadPolicy: vi.fn() };
 });
 
 import { getReputation } from "@/lib/reputation";
 import { listPayments } from "@/lib/store";
-import { loadPolicy, DEFAULT_POLICY } from "./policy.ts";
-import { guardrailGate } from "./gate.ts";
+import { loadPolicy, DEFAULT_POLICY } from "./policy";
+import { guardrailGate } from "./gate";
 
 const enabled = { ...DEFAULT_POLICY, merchantId: "press", enabled: true, dailyCapUsd: 1, humanApprovalThresholdUsd: 0.25, reputationScaling: { baseCapUsd: 0.01, maxCapUsd: 0.1, atScore: 80 } };
 const ctx = { agentId: "668408", agentAddress: "0xAA", payer: "0xAA", merchantId: "press", endpoint: "/api/article/1", amountUsdc: 0.003 };
@@ -819,9 +819,9 @@ Expected: FAIL — cannot resolve `./gate.ts`.
 ```ts
 import { getReputation } from "@/lib/reputation";
 import { listPayments } from "@/lib/store";
-import { loadPolicy } from "./policy.ts";
-import { evaluate, type GuardRailContext, type GuardRailDecision } from "./engine.ts";
-import { paymentKey, sumTodaysSpendUsd, countRecent } from "./signals.ts";
+import { loadPolicy } from "./policy";
+import { evaluate, type GuardRailContext, type GuardRailDecision } from "./engine";
+import { paymentKey, sumTodaysSpendUsd, countRecent } from "./signals";
 
 /**
  * Gathers the three signals the pure engine needs (reputation score, today's
