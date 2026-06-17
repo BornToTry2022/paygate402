@@ -1,6 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = typeof window !== "undefined" ? window.localStorage.getItem("guardrail_admin_token") : null;
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
+}
+
 type Policy = {
   merchantId: string; enabled: boolean; dailyCapUsd: number;
   humanApprovalThresholdUsd: number;
@@ -16,12 +21,15 @@ export default function GuardRailPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
 
   async function refresh() {
-    setPending(await (await fetch("/api/guardrail/pending")).json());
+    const rawPending = await fetch("/api/guardrail/pending", { headers: authHeaders() })
+      .then((r) => r.json())
+      .catch(() => []);
+    setPending(Array.isArray(rawPending) ? rawPending : []);
     const p: Payment[] = await (await fetch("/api/payments")).json().then((d) => d.payments ?? d).catch(() => []);
     setPayments(Array.isArray(p) ? p.slice(0, 15) : []);
   }
   useEffect(() => {
-    fetch("/api/guardrail/policies?merchantId=press").then((r) => r.json()).then(setPolicy);
+    fetch("/api/guardrail/policies?merchantId=press", { headers: authHeaders() }).then((r) => r.json()).then(setPolicy).catch(() => {});
     refresh();
     const t = setInterval(refresh, 3000);
     return () => clearInterval(t);
@@ -29,11 +37,11 @@ export default function GuardRailPage() {
 
   async function savePolicy(next: Policy) {
     setPolicy(next);
-    await fetch("/api/guardrail/policies", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(next) });
+    await fetch("/api/guardrail/policies", { method: "PUT", headers: authHeaders({ "content-type": "application/json" }), body: JSON.stringify(next) });
   }
   async function decide(id: string, approve: boolean) {
-    await fetch("/api/guardrail/approve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, approve }) });
-    refresh();
+    await fetch("/api/guardrail/approve", { method: "POST", headers: authHeaders({ "content-type": "application/json" }), body: JSON.stringify({ id, approve }) });
+    await refresh();
   }
 
   return (
