@@ -64,6 +64,7 @@ export function resolveApproval(id: string, approve: boolean): Promise<Approval 
     const rows = await readAll();
     const row = rows.find((a) => a.id === id);
     if (!row) return null;
+    if (row.status !== "pending") return row; // resolution is final; ignore re-resolve attempts
     row.status = approve ? "approved" : "denied";
     row.resolvedAt = new Date().toISOString();
     await writeAll(rows);

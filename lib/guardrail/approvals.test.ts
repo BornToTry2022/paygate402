@@ -35,4 +35,12 @@ describe("approval queue", () => {
   it("returns null when resolving an unknown id", async () => {
     expect(await resolveApproval("nope", true)).toBeNull();
   });
+
+  it("ignores a re-resolve attempt on an already-resolved approval", async () => {
+    const a = await enqueueApproval(input);
+    const approved = await resolveApproval(a.id, true);
+    const again = await resolveApproval(a.id, false); // attempt to flip to denied
+    expect(again?.status).toBe("approved");
+    expect(again?.resolvedAt).toBe(approved?.resolvedAt);
+  });
 });
