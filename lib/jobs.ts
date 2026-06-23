@@ -15,8 +15,31 @@ import path from "node:path";
  *
  * NOTE: kept dependency-free (no lib-to-lib imports) on purpose, so it resolves
  * identically under both the Next bundler (`@/lib/jobs`) and node's `.ts`
- * type-stripping when `run-job.mts` imports it (`../lib/jobs.ts`).
+ * type-stripping when `run-job.mts` imports it (`../lib/jobs.ts`). For the same
+ * reason the KV backend below is an inlined copy of lib/kv.ts (keep in sync) —
+ * it lets the public dashboard show jobs persisted from a local `run-job` when
+ * KV env vars are shared between the script and the serverless deployment.
  */
+
+// --- inlined KV backend (see lib/kv.ts; duplicated to keep this a leaf module) ---
+const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
+const KV_KEY = "paygate:jobs";
+function kvEnabled(): boolean {
+  return Boolean(KV_URL && KV_TOKEN);
+}
+async function kvCommand<T>(cmd: unknown[]): Promise<T> {
+  const res = await fetch(KV_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${KV_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify(cmd),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`KV ${String(cmd[0])} failed: HTTP ${res.status}`);
+  const json = (await res.json()) as { result: T; error?: string };
+  if (json.error) throw new Error(`KV ${String(cmd[0])} error: ${json.error}`);
+  return json.result;
+}
 
 /** Status labels — mirrors `JOB_STATUS` in lib/erc8183.ts (kept local to stay a leaf module). */
 const JOB_STATUS = ["Open", "Funded", "Submitted", "Completed", "Rejected", "Expired", "Refunded"];
@@ -71,6 +94,11 @@ function withLock<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 async function readAll(): Promise<JobRecord[]> {
+  if (kvEnabled()) {
+    const raw = await kvCommand<string | null>(["GET", KV_KEY]);
+    if (raw == null) return [];
+    try { return JSON.parse(raw) as JobRecord[]; } catch { return []; }
+  }
   try {
     return JSON.parse(await fs.readFile(FILE, "utf-8")) as JobRecord[];
   } catch {
@@ -79,6 +107,10 @@ async function readAll(): Promise<JobRecord[]> {
 }
 
 async function writeAll(jobs: JobRecord[]): Promise<void> {
+  if (kvEnabled()) {
+    await kvCommand(["SET", KV_KEY, JSON.stringify(jobs)]);
+    return;
+  }
   await fs.mkdir(DATA_DIR, { recursive: true });
   // Write to a temp file then atomically rename over the target, so a concurrent
   // reader (the Next.js server polling /api/jobs) never sees a half-written file

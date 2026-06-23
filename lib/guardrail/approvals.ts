@@ -1,6 +1,9 @@
 import { promises as fs } from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import { kvEnabled, kvGetJson, kvSetJson } from "@/lib/kv";
+
+const KV_KEY = "paygate:approvals";
 
 export interface Approval {
   id: string;
@@ -25,10 +28,15 @@ function withLock<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 async function readAll(): Promise<Approval[]> {
+  if (kvEnabled()) return kvGetJson<Approval[]>(KV_KEY, []);
   try { return JSON.parse(await fs.readFile(FILE, "utf-8")) as Approval[]; }
   catch { return []; }
 }
 async function writeAll(rows: Approval[]): Promise<void> {
+  if (kvEnabled()) {
+    await kvSetJson(KV_KEY, rows.slice(0, MAX));
+    return;
+  }
   await fs.mkdir(path.dirname(FILE), { recursive: true });
   await fs.writeFile(FILE, JSON.stringify(rows.slice(0, MAX), null, 2));
 }

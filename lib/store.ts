@@ -3,13 +3,37 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 
 /**
- * Tiny JSON-file-backed payment store.
+ * Tiny JSON-backed payment store.
  *
  * The reference (circlefin/arc-nanopayments) persists payment events to Supabase.
- * For a zero-dependency weekend MVP we record them to ./.data/payments.json instead,
- * so the whole app runs with no external services. Swap this module for a real DB
- * (Supabase/Postgres) when you outgrow it — the interface is intentionally small.
+ * For a zero-dependency MVP we record them to ./.data/payments.json locally, and
+ * to Upstash Redis (one JSON blob) when KV env vars are set — the latter is what
+ * lets the dashboard show real traction on a read-only serverless host (Vercel).
+ *
+ * The KV helpers below are an inlined copy of lib/kv.ts: this module is node
+ * type-stripped directly (scripts/traction.mts imports `../lib/store.ts`), so it
+ * must stay a leaf module and cannot import another lib `.ts` file. Keep in sync.
  */
+
+// --- inlined KV backend (see lib/kv.ts for the shared copy + why this is duplicated) ---
+const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
+const KV_KEY = "paygate:payments";
+function kvEnabled(): boolean {
+  return Boolean(KV_URL && KV_TOKEN);
+}
+async function kvCommand<T>(cmd: unknown[]): Promise<T> {
+  const res = await fetch(KV_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${KV_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify(cmd),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`KV ${String(cmd[0])} failed: HTTP ${res.status}`);
+  const json = (await res.json()) as { result: T; error?: string };
+  if (json.error) throw new Error(`KV ${String(cmd[0])} error: ${json.error}`);
+  return json.result;
+}
 
 export interface PaymentEvent {
   id: string;
@@ -44,6 +68,10 @@ function withLock<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 async function readAll(): Promise<PaymentEvent[]> {
+  if (kvEnabled()) return kvCommand<string | null>(["GET", KV_KEY]).then((raw) => {
+    if (raw == null) return [];
+    try { return JSON.parse(raw) as PaymentEvent[]; } catch { return []; }
+  });
   try {
     return JSON.parse(await fs.readFile(FILE, "utf-8")) as PaymentEvent[];
   } catch {
@@ -52,6 +80,10 @@ async function readAll(): Promise<PaymentEvent[]> {
 }
 
 async function writeAll(events: PaymentEvent[]): Promise<void> {
+  if (kvEnabled()) {
+    await kvCommand(["SET", KV_KEY, JSON.stringify(events)]);
+    return;
+  }
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(FILE, JSON.stringify(events, null, 2));
 }

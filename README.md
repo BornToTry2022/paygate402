@@ -12,7 +12,10 @@ real. No accounts, no API keys: **payment is identity**.
 
 > Each payment carries the buyer's **on-chain agent identity and reputation** (ERC-8004 agent #668408,
 > reputation 80/100). The seller **prices and gates** endpoints by that reputation — while the actual
-> spend comes from disposable per-run wallets.
+> spend comes from disposable per-run wallets. The **same live dashboard** also visualizes ERC-8183
+> [**agent-to-agent jobs**](docs/dashboard-jobs.png): each job's escrow lifecycle
+> (`Created → Funded → Submitted → Completed → Rated`) animates as a tx-linked stepper as it settles on
+> Arc — [see below ↓](#agent-to-agent-jobs-erc-8183).
 
 > Why Arc specifically? Gateway batches many offchain EIP-3009 authorizations into a single onchain
 > settlement (the `GatewayWalletBatched` x402 scheme), and USDC is Arc's native gas token. On a

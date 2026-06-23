@@ -1,5 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { kvEnabled, kvGetJson, kvSetJson } from "@/lib/kv";
+
+const KV_KEY = "paygate:policies";
 
 /** A per-merchant spend policy GuardRail enforces before settlement. */
 export interface GuardRailPolicy {
@@ -31,6 +34,7 @@ export const DEFAULT_POLICY: GuardRailPolicy = {
 const FILE = path.join(process.cwd(), ".data", "policies.json");
 
 async function readAll(): Promise<Record<string, GuardRailPolicy>> {
+  if (kvEnabled()) return kvGetJson<Record<string, GuardRailPolicy>>(KV_KEY, {});
   try {
     return JSON.parse(await fs.readFile(FILE, "utf-8")) as Record<string, GuardRailPolicy>;
   } catch {
@@ -46,6 +50,10 @@ export async function loadPolicy(merchantId: string): Promise<GuardRailPolicy> {
 export async function savePolicy(policy: GuardRailPolicy): Promise<void> {
   const all = await readAll();
   all[policy.merchantId] = policy;
+  if (kvEnabled()) {
+    await kvSetJson(KV_KEY, all);
+    return;
+  }
   await fs.mkdir(path.dirname(FILE), { recursive: true });
   await fs.writeFile(FILE, JSON.stringify(all, null, 2));
 }
