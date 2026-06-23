@@ -15,7 +15,7 @@
     "run-job": "node --experimental-transform-types --no-warnings --env-file=.env.local scripts/run-job.mts",
     "agent": "node --experimental-transform-types --no-warnings --env-file=.env.local agent/buyer.mts",
     "research-agent": "node --experimental-transform-types --no-warnings --env-file=.env.local agent/research-agent.mts",
-    "traction": "node --experimental-transform-types --no-warnings scripts/traction.mts"
+    "traction": "node --experimental-transform-types --no-warnings --env-file=.env.local scripts/traction.mts"
   },
   "dependencies": {
     "@circle-fin/x402-batching": "^2.0.4",

@@ -2,7 +2,7 @@
 
 > **One line:** PressPay is an agent-payable publication on Circle Arc whose engine is a fleet of autonomous agents that **pay per article in sub-cent USDC**, govern their own spend through **GuardRail** (a spend firewall), and choose what to trust through **AgentScore** (a Know-Your-Agent score). The reader-facing product is the front door; the trust-and-control layer is what makes autonomous payment safe and defensible.
 
-- **Live link:** `<fill in after `npx vercel --prod`>`
+- **Live link:** **https://paygate402-two.vercel.app** — [`/press`](https://paygate402-two.vercel.app/press) · [`/dashboard`](https://paygate402-two.vercel.app/dashboard) · [`/explorer`](https://paygate402-two.vercel.app/explorer) · [`/guardrail`](https://paygate402-two.vercel.app/guardrail) (real on-chain traction, persisted to Upstash Redis)
 - **Video (<3 min):** `<fill in Loom/YouTube link>`
 - **Repo:** this repository (public)
 - **Primary RFB:** 06 — Creator & Publisher Monetization. **Also:** 01 (Autonomous Paying Agents), 03 (Agent-to-Agent reputation/escrow), 05 (Infra & Tooling).
@@ -13,7 +13,7 @@
 
 By mid-2026 the x402 settlement rail is a commodity — "an agent pays for content" is solved. The unsolved, higher-value problems sit one layer up: **authorization** (what is an agent allowed to spend?), **trust** (is this counterparty worth paying?), and **disputes/audit**. And per the round's own lean, creators still can't monetize a *single* piece without forcing a subscription. PressPay attacks both: a real pay-per-piece product, powered by the trust-and-control layer the agent economy is missing.
 
-## What we built (all on `main`, 64 tests passing, `npm run build` clean)
+## What we built (all on `main`, 71 tests passing, `npm run build` clean, live on Vercel)
 
 | Piece | What it is | Where |
 |---|---|---|
@@ -55,16 +55,18 @@ npm run research-agent -- --dry-run --base http://localhost:3000 --min-kya 0   #
 2. `npm run register-agent` + `npm run give-feedback` so the publisher's KYA clears the fleet's `--min-kya` (or run with `--min-kya 0` for a cold start).
 3. `npm run research-agent` (no `--dry-run`) — accrues real sub-cent settlements (bounded by the fleet policy + a 5 USDC per-deposit / 5 USDC total-deposit ceiling).
 4. `npm run traction` — summarize; `--push` best-effort feeds `arc-canteen`.
-5. `npx vercel --prod` to deploy (set env vars; set `GUARDRAIL_ADMIN_TOKEN` to lock the admin routes for the public link).
+5. `bash scripts/deploy-vercel.sh` to deploy (after `vercel login`). On serverless the file store can't be written, so set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` (any Upstash Redis) and the stores persist there — this is what makes the public dashboard show real traction. The script also sets `GUARDRAIL_ADMIN_TOKEN` to lock the admin routes for the public link.
 
 ## Circle tooling used
 - **Circle Gateway** (deposit + batched settlement), the **`GatewayWalletBatched`** x402 scheme via **`@circle-fin/x402-batching@^2.0.4`**, **USDC** on Arc Testnet (`eip155:5042002`), **x402 v2**.
 - **Wave 2 (planned before deadline):** Circle CLI (`@circle-fin/cli`) agent wallet for one real Agent-Wallet-funded tx on camera, `circlefin/skills` + Circle MCP — documented as adopted, with feedback appended to `CIRCLE-FEEDBACK.md`.
 
-## Traction results *(fill in after the live run)*
-- On-chain payments: `<N>` &nbsp;·&nbsp; USDC paid to the creator: `<$X>` &nbsp;·&nbsp; unique paying agents: `<N>`
-- Real human tippers: `<N>` &nbsp;·&nbsp; design-partner quotes: `<paste>`
-- Sample tx on Arc explorer: `<link>`
+## Traction results *(live on https://paygate402-two.vercel.app, 2026-06-23)*
+- **PressPay payments:** 6 paid article unlocks &nbsp;·&nbsp; **$0.021 USDC** to the creator &nbsp;·&nbsp; unique paying agent **#668408** — all sub-cent, settled via Circle Gateway batching, persisted to KV and shown live at [`/dashboard`](https://paygate402-two.vercel.app/dashboard).
+- **ERC-8183 agent-to-agent job:** job **#134622** completed — 0.05 USDC escrowed → released to provider agent **#840715**, rated 95. Full on-chain lifecycle (create → fund → submit → complete → feedback).
+- **AgentScore (live KYA):** agent **#840715** KYA **73** (rep 0.95 + 1 completed job), agent **#668408** KYA **55** (rep 0.80 + 6-payment reliability) — at [`/explorer`](https://paygate402-two.vercel.app/explorer).
+- **Sample on Arc explorer:** job [#134622 complete](https://testnet.arcscan.app/tx/0x373993dad33a446ef4abc9d3eb30bf7400d152b0f8311a5dc7058d459f7d4018) · provider [agent #840715](https://testnet.arcscan.app/token/0x8004A818BFB912233c491871b3d84c89A494BD9e/instance/840715).
+- Still to strengthen: a few real human tippers + 1–2 design-partner quotes.
 
 ## Architecture
 ```
