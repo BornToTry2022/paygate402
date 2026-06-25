@@ -74,10 +74,18 @@ https://paygate402-two.vercel.app/press
 
 ## ③b Quote-tweet @circle (highest-leverage X move)
 
-Find @circle's post about *"agents that can hold a wallet, manage a budget, discover paid
-services, pay in USDC"* → Repost → **Quote**, and map each ask to PressPay. Don't start the
-tweet with `@circle` (X treats a leading @ as a reply and suppresses reach — the quoted post
-already references them).
+Quote-tweet a recent @circle agentic-economy post and map it to PressPay → Repost → **Quote**.
+Don't start the tweet with `@circle` (X treats a leading @ as a reply and suppresses reach — the
+quoted post already references them).
+
+**Which @circle post to quote** (all @circle, Jun 19 2026; search `from:circle` on X to find them):
+- ⭐ **Best 1:1 fit** — *"…agents that can hold a wallet, manage a budget, discover paid services, pay in USDC…"* (the AI Agents Summit / Berlin recruitment post). One-click find: `https://x.com/search?q=from%3Acircle%20%22discover%20paid%20services%22&f=live`
+- 🔥 **Higher reach (~8K)** — *"A full sales workflow for $1.08, paid by the agent itself."*
+- 🔥 **Highest reach (~17K)** — *"An agent finds every fintech CTO in NYC… about $0.15, paid in USDC. No seat license. No CRM login."*
+
+The draft below maps 1:1 to the first post. For the $1.08 / $0.15 posts, keep the same four-line
+"hold a wallet / manage a budget / discover & vet / pay in USDC → PressPay" mapping and open with
+**"This, but as a product anyone's agent can use 👇"**.
 
 **Recommended (≤280 chars, works without X Premium):**
 
