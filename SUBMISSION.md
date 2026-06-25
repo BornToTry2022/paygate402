@@ -32,12 +32,20 @@ These compose into **one system**: an agent gets a trust score, is governed by a
 - **Circle tool usage (20%)** — settlement on **Circle Gateway batching** (the `GatewayWalletBatched` x402 scheme, `@circle-fin/x402-batching`), **USDC on Arc**, x402 v2. GuardRail is positioned as the policy layer *on top of* Circle Agent Wallets' native limits. We also filed concrete tooling feedback — see `CIRCLE-FEEDBACK.md` (claims the $500 incentive) and a GitHub-issue draft for a real settlement bug.
 - **Innovation (20%)** — two primitives Circle's stack lacks: **GuardRail** (reputation-aware allowlist + velocity + HITL spend policy) and **AgentScore** (a KYA trust score over ERC-8004/8183 + payment reliability). Circle's Agent Marketplace has no equivalent trust score.
 
-## The demo (<3 min, 4 beats)
+## The demo (2:53, recorded walkthrough)
 
-1. **(~25s) Human cold-open.** A creator can't monetize a single piece without a subscription. Show a PressPay article behind a `$0.003` paywall (`/press`).
-2. **(~60s) The WOW — the "agent decision cam."** Split screen. Left: the agent's live reasoning (`publisher AgentScore 82 → trusted; GuardRail: $0.003 within daily cap + velocity OK → BUY`). Right: it **skips a low-AgentScore publisher** and **escalates a large spend to the `/guardrail` approval queue** — you click approve, settlement resumes. Cut to the **Arc block explorer showing the real tx**. This allow/skip/escalate triptych is the proof the AI *decides*.
-3. **(~45s) Infra reveal.** Pull back: GuardRail = the reputation-aware policy layer on top of Circle Agent Wallets; AgentScore = the KYA oracle (`/explorer`) indexing ERC-8004 + ERC-8183.
-4. **(~20s) Traction.** The `/dashboard` **Traction** panel: **distinct external payers** (self-dogfood shown separately), USDC to the creator, agents-vs-humans, with clickable on-chain tx + first/last-seen timestamps. `npm run traction` prints the same split.
+Voiceover + synced on-screen captions throughout; every screen is the **live deployment with real on-chain data**.
+
+1. **(0:00) Hello + title.** "Hi everyone — this is PressPay," the Lepton Agents build on Circle Arc.
+2. **(0:04) The problem.** Agents are learning to pay on their own, but card rails can't do sub-cent payments (they need humans, accounts, minimums), there are no spend limits for an autonomous agent, and no way to know which agent — or seller — to trust.
+3. **(0:28) Overview — the architecture.** One diagram of the whole system: autonomous agents **use** PressPay (the pay-per-article publication) → **PayGate402** x402 paywall → the **trust & control layer** (GuardRail spend firewall + AgentScore KYA) → **Circle Gateway** sub-cent USDC settlement → **Circle Arc** (ERC-8004 identity/reputation · ERC-8183 jobs · USDC-as-gas).
+4. **(0:55) The product (`/press`).** The front door: every article sold on its own for a fraction of a cent — and the interesting buyer is an autonomous agent.
+5. **(1:12) Agents decide & pay.** The research-agent fleet reads each publisher's AgentScore + its own policy and prints **buy / skip / escalate**, then pays six sub-cent purchases via Circle Gateway batching.
+6. **(1:31) Revenue, live (`/dashboard`).** The creator's earnings update in real time; every payment is bound to the agent's on-chain ERC-8004 identity (#668408).
+7. **(1:46) GuardRail (`/guardrail`).** The spend firewall — allowlist, daily cap, velocity, reputation-scaled per-tx cap; a too-large spend escalates to a human approval queue.
+8. **(2:02) AgentScore (`/explorer`).** The 0–100 KYA trust oracle over on-chain reputation + completed agent-to-agent jobs + payment reliability (#840715 = 73, #668408 = 55).
+9. **(2:15) Agent-to-agent job.** A full ERC-8183 lifecycle — hire → fund USDC escrow → deliver → release → earn reputation (#134622, 0.05 USDC, rated 95).
+10. **(2:31) Takeaway.** Payment was the easy part; the unlock is letting agents transact **safely**, on their own — the trust-and-control layer that turns autonomous agent payments into a real economy.
 
 ## Run it
 
