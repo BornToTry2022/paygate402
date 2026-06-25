@@ -26,6 +26,28 @@ interface Stats {
   count: number;
   byEndpoint: Record<string, { count: number; totalUsdc: number }>;
 }
+interface PayerIdentity {
+  key: string;
+  kind: "agent" | "human";
+  label: string;
+  agentId: string | null;
+  self: boolean;
+  payments: number;
+  usdc: number;
+  firstTs: string;
+  lastTs: string;
+}
+interface Traction {
+  distinctPayers: number;
+  distinctExternalPayers: number;
+  selfPayments: number;
+  selfUsdc: number;
+  externalPayments: number;
+  externalUsdc: number;
+  externalAgents: number;
+  externalHumans: number;
+  identities: PayerIdentity[];
+}
 interface Balance {
   wallet?: { balance: string };
   gateway?: { total: string; available: string; withdrawing: string; withdrawable: string };
@@ -70,6 +92,7 @@ const usd = (n: number) => `$${n.toFixed(6)}`;
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [payments, setPayments] = useState<PaymentEvent[]>([]);
+  const [traction, setTraction] = useState<Traction | null>(null);
   const [balance, setBalance] = useState<Balance | null>(null);
   const [reputation, setReputation] = useState<Reputation | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -91,6 +114,7 @@ export default function Dashboard() {
         if (!alive) return;
         setStats(p.stats);
         setPayments(p.payments ?? []);
+        setTraction(p.traction ?? null);
         setReputation(p.reputation ?? null);
         setBalance(b);
         setJobs(j?.jobs ?? []);
@@ -108,6 +132,10 @@ export default function Dashboard() {
   }, []);
 
   const identity = payments.find((p) => p.agentId) ?? null;
+  const externalIds = traction?.identities.filter((i) => !i.self) ?? [];
+  const selfKeys = new Set((traction?.identities ?? []).filter((i) => i.self).map((i) => i.key));
+  const payerKey = (p: PaymentEvent) =>
+    p.agentId ? `agent:${p.agentId}` : `addr:${(p.payer || "").toLowerCase()}`;
 
   return (
     <main className="wrap">
@@ -169,6 +197,87 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <h2 style={{ marginTop: 30 }}>
+        Traction · who&apos;s actually paying{" "}
+        <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>
+          · distinct payers, self-dogfood vs genuine external usage
+        </span>
+      </h2>
+      <div className="grid" style={{ marginTop: 12 }}>
+        <div className="card stat" style={{ borderColor: "#27623a" }}>
+          <div className="big price">{traction?.distinctExternalPayers ?? 0}</div>
+          <div className="lbl">Distinct external payers</div>
+        </div>
+        <div className="card stat">
+          <div className="big">{traction?.externalPayments ?? 0}</div>
+          <div className="lbl">External payments</div>
+        </div>
+        <div className="card stat">
+          <div className="big price">{usd(traction?.externalUsdc ?? 0)}</div>
+          <div className="lbl">External USDC to creator</div>
+        </div>
+        <div className="card stat">
+          <div className="big">
+            {traction?.externalAgents ?? 0}
+            <span className="muted" style={{ fontSize: 15 }}> agents</span> · {traction?.externalHumans ?? 0}
+            <span className="muted" style={{ fontSize: 15 }}> humans</span>
+          </div>
+          <div className="lbl">External breakdown</div>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 0, marginTop: 14 }}>
+        <table>
+          <thead>
+            <tr>
+              <th>External payer</th>
+              <th>Type</th>
+              <th>Payments</th>
+              <th>USDC</th>
+              <th>First seen</th>
+              <th>Last seen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {externalIds.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="muted">
+                  No external payers yet — share your live link and invite other agents/humans to pay.
+                  Your self-dogfood baseline is shown below.
+                </td>
+              </tr>
+            ) : (
+              externalIds.map((i) => (
+                <tr key={i.key}>
+                  <td className="mono">
+                    {i.agentId ? (
+                      <a href={agentUrl(i.agentId)} target="_blank" rel="noreferrer" className="price">
+                        {i.label}
+                      </a>
+                    ) : (
+                      i.label
+                    )}
+                  </td>
+                  <td>
+                    <span className="badge">{i.kind}</span>
+                  </td>
+                  <td className="mono">{i.payments}</td>
+                  <td className="mono price">{usd(i.usdc)}</td>
+                  <td className="muted mono">{new Date(i.firstTs).toLocaleString()}</td>
+                  <td className="muted mono">{new Date(i.lastTs).toLocaleString()}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      {(traction?.selfPayments ?? 0) > 0 && (
+        <p className="muted" style={{ marginTop: 10, fontSize: 13 }}>
+          Self-dogfood baseline: {traction!.selfPayments} payments · {usd(traction!.selfUsdc)} from our own
+          fleet (the rail working end-to-end) — excluded from the external count above.
+        </p>
+      )}
+
       <h2>By endpoint</h2>
       <div className="card" style={{ padding: 0 }}>
         <table>
@@ -207,6 +316,7 @@ export default function Dashboard() {
               <th>Time</th>
               <th>Endpoint</th>
               <th>Agent</th>
+              <th>Src</th>
               <th>Payer</th>
               <th>Amount</th>
               <th>Settlement</th>
@@ -215,7 +325,7 @@ export default function Dashboard() {
           <tbody>
             {payments.length === 0 ? (
               <tr>
-                <td colSpan={6} className="muted">
+                <td colSpan={7} className="muted">
                   Waiting for the first nanopayment…
                 </td>
               </tr>
@@ -231,6 +341,17 @@ export default function Dashboard() {
                       </a>
                     ) : (
                       <span className="muted">—</span>
+                    )}
+                  </td>
+                  <td>
+                    {selfKeys.has(payerKey(p)) ? (
+                      <span className="badge" style={{ color: "#8a93a3", borderColor: "#2a2f3a" }}>
+                        self
+                      </span>
+                    ) : (
+                      <span className="badge price" style={{ borderColor: "#27623a" }}>
+                        ext
+                      </span>
                     )}
                   </td>
                   <td className="mono">{short(p.payer)}</td>

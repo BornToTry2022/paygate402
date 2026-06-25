@@ -120,3 +120,99 @@ export async function getStats(): Promise<Stats> {
   }
   return { totalUsdc, count: events.length, byEndpoint };
 }
+
+function shortAddr(a: string): string {
+  return a && a.startsWith("0x") && a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
+}
+
+/** One distinct paying party, keyed by stable identity (ERC-8004 agent id, else wallet). */
+export interface PayerIdentity {
+  /** "agent:<id>" for an ERC-8004 identity, else "addr:<lowercased wallet>". */
+  key: string;
+  kind: "agent" | "human";
+  label: string;
+  agentId: string | null;
+  /** True when this payer is the project's own fleet/dogfood (not a real external user). */
+  self: boolean;
+  payments: number;
+  usdc: number;
+  firstTs: string;
+  lastTs: string;
+}
+
+/**
+ * Traction broken down by DISTINCT payer, and split into the project's own
+ * dogfood (self) vs genuine external users — the number judges actually weigh.
+ * The fleet pays from a fresh ephemeral wallet each run, so we key on the stable
+ * ERC-8004 agent id (falling back to the wallet) — a looped self-agent collapses
+ * to ONE identity instead of inflating a raw payment count.
+ */
+export interface Traction {
+  distinctPayers: number;
+  distinctExternalPayers: number;
+  selfPayments: number;
+  selfUsdc: number;
+  externalPayments: number;
+  externalUsdc: number;
+  externalAgents: number;
+  externalHumans: number;
+  identities: PayerIdentity[];
+}
+
+export async function getTractionBreakdown(
+  opts: { selfAgentIds?: string[]; selfAddrs?: string[] } = {},
+): Promise<Traction> {
+  const selfAgents = new Set((opts.selfAgentIds ?? []).map((s) => s.trim()).filter(Boolean));
+  const selfAddrs = new Set((opts.selfAddrs ?? []).map((s) => s.trim().toLowerCase()).filter(Boolean));
+  const events = await readAll();
+  const map = new Map<string, PayerIdentity>();
+  for (const e of events) {
+    const addr = (e.payer || "").toLowerCase();
+    const key = e.agentId ? `agent:${e.agentId}` : `addr:${addr}`;
+    const isSelf = (e.agentId != null && selfAgents.has(e.agentId)) || (addr !== "" && selfAddrs.has(addr));
+    let id = map.get(key);
+    if (!id) {
+      id = {
+        key,
+        kind: e.agentId ? "agent" : "human",
+        label: e.agentId ? `#${e.agentId}` : shortAddr(e.payer),
+        agentId: e.agentId,
+        self: isSelf,
+        payments: 0,
+        usdc: 0,
+        firstTs: e.ts,
+        lastTs: e.ts,
+      };
+      map.set(key, id);
+    }
+    id.payments++;
+    id.usdc += parseFloat(e.amountUsdc || "0");
+    if (e.ts < id.firstTs) id.firstTs = e.ts;
+    if (e.ts > id.lastTs) id.lastTs = e.ts;
+  }
+  // External payers first, then by volume — surfaces real traction at the top.
+  const identities = [...map.values()].sort(
+    (a, b) => Number(a.self) - Number(b.self) || b.payments - a.payments,
+  );
+  const t: Traction = {
+    distinctPayers: identities.length,
+    distinctExternalPayers: identities.filter((i) => !i.self).length,
+    selfPayments: 0,
+    selfUsdc: 0,
+    externalPayments: 0,
+    externalUsdc: 0,
+    externalAgents: identities.filter((i) => !i.self && i.kind === "agent").length,
+    externalHumans: identities.filter((i) => !i.self && i.kind === "human").length,
+    identities,
+  };
+  for (const i of identities) {
+    if (i.self) {
+      t.selfPayments += i.payments;
+      t.selfUsdc += i.usdc;
+    } else {
+      t.externalPayments += i.payments;
+      t.externalUsdc += i.usdc;
+    }
+  }
+  return t;
+}
