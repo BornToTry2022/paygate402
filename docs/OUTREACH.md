@@ -72,6 +72,51 @@ https://paygate402-two.vercel.app/press
 #x402 #LeptonAgents #CircleArc
 ```
 
+## ③b Quote-tweet @circle (highest-leverage X move)
+
+Find @circle's post about *"agents that can hold a wallet, manage a budget, discover paid
+services, pay in USDC"* → Repost → **Quote**, and map each ask to PressPay. Don't start the
+tweet with `@circle` (X treats a leading @ as a reply and suppresses reach — the quoted post
+already references them).
+
+**Recommended (≤280 chars, works without X Premium):**
+
+```
+You just described PressPay 👇
+
+🤖 holds a wallet → on-chain ERC-8004 identity
+💰 manages a budget → GuardRail spend firewall
+🔎 finds & vets paid services → x402 + AgentScore
+💵 pays in USDC → sub-cent, via Circle Gateway on @arc
+
+Live: paygate402-two.vercel.app #x402
+```
+
+**Longer (X Premium / more detail):**
+
+```
+You just described what I built for the @thecanteenapp x @circle hackathon 👇
+
+PressPay — autonomous agents that pay per article in sub-cent USDC:
+🤖 hold a wallet → on-chain ERC-8004 identity (not just an address)
+💰 manage a budget → GuardRail spend firewall: caps, velocity, human-approval
+🔎 discover & vet paid services → x402 paywall + AgentScore (0–100 KYA trust)
+💵 pay in USDC → batched sub-cent settlement via Circle Gateway, on @arc (testnet)
+
+Built on the Circle Agent Stack. Point your agent at it 👇
+paygate402-two.vercel.app  ·  github.com/BornToTry2022/paygate402
+#x402 #LeptonAgents
+```
+
+**Reply under your own quote-tweet (keeps the demo + reciprocal ask off the main post):**
+
+```
+2-min walkthrough + the agent decision loop (buy/skip/escalate) here 👇
+[your YouTube/Loom link]
+
+Running an x402 agent? Point it at my paywall and I'll point mine back — reply with your tx 🤝
+```
+
 ---
 
 ## How to run the campaign
