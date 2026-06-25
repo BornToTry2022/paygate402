@@ -89,5 +89,47 @@ https://paygate402-two.vercel.app/press
    during the window: X distinct human readers + Y independent agents from Z teams, $P test-USDC,
    all on-chain (links)."*
 
-> Confirm the exact submission cutoff in Discord — the Arc House listing says **Jun 29, 2026**;
-> a staging artifact hinted at Jul 6 (unconfirmed).
+> **Deadline:** the official Canteen page (lepton.thecanteenapp.com) shows **July 6, 2026, 11:59 PM ET**
+> (an earlier Arc House listing said Jun 29). Confirm in Discord — but you likely have until Jul 6.
+
+---
+
+## Where else to post — communities (verified 2026-06-25)
+
+You've already posted in the **Lepton/Canteen Discord** (`discord.gg/rsVfYutFZg`). Other high-value
+rooms, ranked for recruiting agent builders who can reciprocate. Post ONCE per server, in the
+#showcase / #show-and-tell / #self-promo channel only (never #help/#general/support), leading with
+the live link + a one-line "point your agent at my paywall, I'll point mine at yours."
+
+| Community | Link | Why |
+|---|---|---|
+| **Coinbase CDP** (the x402 builder hub) | `discord.gg/cdp` | Densest concentration of people running x402 agents → best reciprocal traction |
+| **Circle Developers** ("Build on Circle") | `discord.gg/buildoncircle` (= `circle.com/discord`) | Hackathon host; Circle DevRel/judges are here |
+| **Arc** ("Build on Arc") | `discord.gg/buildonarc` | Arc-native, build-first; most on-target for Arc agents |
+| **Arc House** (forum, persistent writeup) | `community.arc.network` | Post a project writeup; feeds the Architects program |
+| **ERC-8004 Trustless Agents** (Telegram) | `t.me/ERC8004` | Small (~2.2k) but exactly your stack (ERC-8004/8183) |
+
+**X/Twitter:** post a demo thread tagging **@thecanteenapp + @arc + @circle** (hosts reshare entries)
+and **@x402Foundation + @CoinbaseDev** for the protocol crowd. ⚠️ Tag `@x402Foundation`, NOT `@x402`
+(a dormant Solana handle). Strong move: quote-tweet @circle's "looking for agents that hold a wallet /
+pay in USDC" post.
+
+⚠️ **Avoid:** the "AgentPay x402" Discord (`discord.gg/uEmcWj8xMX`, 40k) is NOT official x402 —
+farmer-bloated. There is NO official "Virtuals Discord" (theirs was hacked Jan 2026) — only their TG/X.
+
+## x402 directory listings
+
+**✅ Done for you** — curated GitHub lists that accept Arc/testnet projects (no wallet needed):
+- `xpaysh/awesome-x402` → PR [#612](https://github.com/xpaysh/awesome-x402/pull/612)
+- `Merit-Systems/awesome-agentic-commerce` → PR [#372](https://github.com/Merit-Systems/awesome-agentic-commerce/pull/372)
+
+**Honest reality — skip the rest for now.** The automated x402 directories/marketplaces are
+**Base/Solana-only and do NOT index Circle Arc testnet**, so listing PressPay there yields nothing
+as-built:
+- **x402scan.com** — indexes only Base + Solana; the submit button stays disabled for an Arc endpoint.
+- **Coinbase x402 Bazaar / agentic.market** — only index endpoints settled via the **CDP facilitator**; PressPay settles via **Circle Gateway** on Arc → won't appear.
+- **pay.sh** (Solana-mainnet only) · **ampersend** (Base only + account/wallet) · **x402-list.com** (rejects `vercel.app` + needs email).
+
+> Appearing in those scanners would need a **Base/Base-Sepolia "exact"-scheme USDC mirror** of one
+> endpoint settled via the CDP facilitator — a future dev task, not required for the hackathon. For now,
+> real external traction comes from the **reciprocal swaps in the Discords above**, not directories.
